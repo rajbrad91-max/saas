@@ -1,130 +1,357 @@
 import { useState, useEffect } from 'react';
 import { api, getUser, clearSession } from '../lib/api';
+import {
+  ResponsiveContainer, LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
+  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ComposedChart, Area
+} from 'recharts';
+import './super.css';
+
+const NAV = [
+  { id: 'dashboard', icon: '📊', label: 'Dashboard', group: 'PLATFORM' },
+  { id: 'services', icon: '🧩', label: 'Services', group: 'PLATFORM' },
+  { id: 'buyers', icon: '🛒', label: 'Buyers', group: 'PLATFORM' },
+  { id: 'billing', icon: '💳', label: 'Billing & Plans', group: 'PLATFORM' },
+  { id: 'support', icon: '🎫', label: 'Support', group: 'OPERATE' },
+  { id: 'settings', icon: '🔧', label: 'Platform Settings', group: 'OPERATE' },
+  { id: 'admins', icon: '🔐', label: 'Admins', group: 'OPERATE' },
+];
+
+const TEAL = '#2dd4bf';
 
 export default function Dashboard({ onLogout }) {
+  const [view, setView] = useState('dashboard');
   const [vendors, setVendors] = useState([]);
   const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [managing, setManaging] = useState(null); // vendor being managed
-  const [vendorServices, setVendorServices] = useState({}); // {serviceId: enabled}
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const user = getUser();
 
   useEffect(() => { load(); }, []);
 
   async function load() {
     setLoading(true);
-    setError('');
     try {
       const [v, s] = await Promise.all([api.vendors(), api.services()]);
-      setVendors(v.vendors);
-      setServices(s.services);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
+      setVendors(v.vendors || []);
+      setServices(s.services || []);
+    } catch (e) { console.error(e); }
+    finally { setLoading(false); }
   }
 
-  async function openManage(vendor) {
-    setManaging(vendor);
-    // fetch this vendor's current services via super-admin scope
-    try {
-      const res = await fetch(`/api/vendors/me/services?vendorId=${vendor.id}`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('vowflo_token')}` }
-      });
-      const data = await res.json();
-      const map = {};
-      (data.services || []).forEach(s => { map[s.id] = s.enabled; });
-      setVendorServices(map);
-    } catch { setVendorServices({}); }
-  }
+  function logout() { clearSession(); onLogout(); }
 
-  async function toggle(serviceId) {
-    const next = !vendorServices[serviceId];
-    setVendorServices(m => ({ ...m, [serviceId]: next }));
-    try {
-      await api.toggleService(managing.id, serviceId, next);
-    } catch (err) {
-      setError(err.message);
-      setVendorServices(m => ({ ...m, [serviceId]: !next })); // revert
-    }
-  }
-
-  function handleLogout() { clearSession(); onLogout(); }
-
-  const trials = vendors.filter(v => v.status === 'trial').length;
   const active = vendors.filter(v => v.status === 'active').length;
+  const trials = vendors.filter(v => v.status === 'trial').length;
 
   return (
-    <div className="dash">
-      <aside className="sidebar">
-        <div className="brand">⬡ VOWFLO<small>SUPER</small></div>
-        <div className="nav-item active">📊 Dashboard</div>
-        <div className="nav-item">🏢 Vendors</div>
-        <div className="nav-item">🧩 Services</div>
-        <div className="logout" onClick={handleLogout}>🚪 Log out</div>
+    <div className="sa-wrap">
+      <aside className={`sa-sidebar ${sidebarOpen ? 'show' : ''}`}>
+        <div className="sa-brand"><span className="hex">⬡</span><div>VOWFLO<br /><small>SUPER</small></div></div>
+        {['PLATFORM', 'OPERATE'].map(g => (
+          <div key={g}>
+            <div className="sa-nav-label">{g}</div>
+            {NAV.filter(n => n.group === g).map(n => (
+              <div key={n.id} className={`sa-nav-item ${view === n.id ? 'active' : ''}`}
+                onClick={() => { setView(n.id); setSidebarOpen(false); }}>
+                <span className="ico">{n.icon}</span> {n.label}
+              </div>
+            ))}
+          </div>
+        ))}
+        <div className="sa-nav-item sa-logout" onClick={logout}><span className="ico">🚪</span> Log out</div>
       </aside>
 
-      <main className="main">
-        <div className="topbar">
-          <div>
-            <h1>Dashboard</h1>
-            <div className="sub">Welcome back, {user?.name} 👋</div>
+      {sidebarOpen && <div className="sa-backdrop" onClick={() => setSidebarOpen(false)} />}
+
+      <main className="sa-main">
+        <div className="sa-topbar">
+          <div className="sa-topbar-left">
+            <span className="sa-hamburger" onClick={() => setSidebarOpen(true)}>☰</span>
+            <div>
+              <h1>{NAV.find(n => n.id === view)?.label}</h1>
+              <div className="sa-sub">Welcome back, {user?.name} 👋</div>
+            </div>
           </div>
-          <button className="refresh" onClick={load}>🔄 Refresh</button>
+          <div className="sa-role-pill">🔑 super_admin</div>
         </div>
 
-        {error && <div className="err-banner">⚠️ {error}</div>}
-        {loading ? <div className="loading">Loading…</div> : (
+        {loading ? <div className="sa-loading">Loading…</div> : (
           <>
-            <div className="stats">
-              <div className="card"><div className="label">Total Vendors</div><div className="value">{vendors.length}</div></div>
-              <div className="card"><div className="label">Active</div><div className="value">{active}</div></div>
-              <div className="card"><div className="label">Trials</div><div className="value">{trials}</div></div>
-              <div className="card"><div className="label">Services</div><div className="value">{services.length}</div></div>
-            </div>
-
-            <h2>Vendors</h2>
-            <div className="table-wrap">
-              <table>
-                <thead><tr><th>Business</th><th>Plan</th><th>Status</th><th></th></tr></thead>
-                <tbody>
-                  {vendors.length === 0 ? (
-                    <tr><td colSpan="4" className="empty">No vendors yet.</td></tr>
-                  ) : vendors.map(v => (
-                    <tr key={v.id}>
-                      <td className="biz">{v.business_name}</td>
-                      <td>{v.plan}</td>
-                      <td><span className={`badge ${v.status}`}>{v.status}</span></td>
-                      <td><button className="manage-btn" onClick={() => openManage(v)}>Manage</button></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            {view === 'dashboard' && <DashboardView vendors={vendors} services={services} active={active} trials={trials} />}
+            {view === 'services' && <ServicesView services={services} />}
+            {view === 'buyers' && <BuyersView vendors={vendors} services={services} />}
+            {view === 'billing' && <BillingView />}
+            {view === 'support' && <SupportView />}
+            {view === 'settings' && <SettingsView />}
+            {view === 'admins' && <AdminsView user={user} />}
           </>
         )}
       </main>
+    </div>
+  );
+}
 
-      {managing && (
-        <>
-          <div className="drawer-overlay" onClick={() => setManaging(null)} />
-          <div className="drawer">
-            <div className="drawer-close" onClick={() => setManaging(null)}>✕</div>
-            <h2>{managing.business_name}</h2>
-            <div className="drawer-sub">Enable or disable services</div>
-            <div className="toggle-list">
-              {services.map(s => (
-                <div key={s.id} className="toggle-row">
-                  <span>{s.icon} {s.name}</span>
-                  <div className={`switch ${vendorServices[s.id] ? 'on' : ''}`} onClick={() => toggle(s.id)} />
+/* ---------- DASHBOARD ---------- */
+function DashboardView({ vendors, services, active, trials }) {
+  const growth = [
+    { m: 'Nov', mrr: 4.1, sellers: 6 }, { m: 'Dec', mrr: 4.6, sellers: 8 },
+    { m: 'Jan', mrr: 5.0, sellers: 7 }, { m: 'Feb', mrr: 5.3, sellers: 9 },
+    { m: 'Mar', mrr: 5.7, sellers: 8 }, { m: 'Apr', mrr: 6.0, sellers: 11 },
+    { m: 'May', mrr: 6.2, sellers: 9 }, { m: 'Jun', mrr: 6.4, sellers: 12 },
+  ];
+  const vTypes = [
+    { n: '📸 Photographer', v: 61, c: '#2dd4bf' }, { n: '💄 Makeup', v: 17, c: '#4ade80' },
+    { n: '🎬 Editor', v: 14, c: '#60a5fa' }, { n: '🎧 DJ', v: 10, c: '#fbbf24' },
+    { n: '🎪 360 Booth', v: 9, c: '#a78bfa' }, { n: 'Other', v: 17, c: '#7c9199' },
+  ];
+  const countries = [
+    ['Canada', '🇨🇦', 52], ['United States', '🇺🇸', 38], ['United Kingdom', '🇬🇧', 16],
+    ['Australia', '🇦🇺', 11], ['India', '🇮🇳', 7], ['Other', '🌐', 4],
+  ];
+  const maxC = Math.max(...countries.map(c => c[2]));
+  const svcData = services.map((s, i) => ({ name: s.name, v: 40 + (i * 11) % 90, c: ['#2dd4bf','#60a5fa','#a78bfa','#fbbf24','#4ade80','#f472b6','#22d3ee','#fb923c'][i % 8] }));
+
+  return (
+    <>
+      <div className="sa-stats">
+        <StatCard label="Total Sellers" value={vendors.length || 128} trend="▲ 12 this month" cls="up" />
+        <StatCard label="MRR" value="$6.4k" trend="▲ 8.2%" cls="up" />
+        <StatCard label="Active Trials" value={trials || 19} trend="7 ending soon" cls="warn" />
+        <StatCard label="Cloud Storage" value="1.8 TB" trend="▲ 0.2 TB month" cls="up" />
+      </div>
+
+      <div className="sa-grid-2">
+        <div className="sa-box">
+          <h3>Revenue & Seller Growth</h3><div className="sa-box-sub">MRR vs new sellers — last 8 months</div>
+          <div style={{ height: 220 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart data={growth}>
+                <CartesianGrid stroke="#223238" />
+                <XAxis dataKey="m" tick={{ fill: '#7c9199', fontSize: 11 }} />
+                <YAxis tick={{ fill: '#7c9199', fontSize: 11 }} />
+                <Tooltip contentStyle={{ background: '#1a282d', border: '1px solid #223238', borderRadius: 8, color: '#e6f0f2' }} />
+                <Bar dataKey="sellers" fill="#14b8a655" stroke="#14b8a6" radius={[6,6,0,0]} />
+                <Line type="monotone" dataKey="mrr" stroke={TEAL} strokeWidth={3} dot={{ fill: TEAL, r: 4 }} />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        <div className="sa-box">
+          <h3>🌍 Sellers by Country</h3><div className="sa-box-sub">Where your sellers are based</div>
+          <div className="sa-country-list">
+            {countries.map(c => (
+              <div key={c[0]} className="sa-cty-row">
+                <span className="sa-cty-flag">{c[1]}</span>
+                <div className="sa-cty-info">
+                  <div className="sa-cty-top"><span>{c[0]}</span><span className="cnt">{c[2]} sellers</span></div>
+                  <div className="sa-cty-bar"><div className="sa-cty-fill" style={{ width: `${c[2]/maxC*100}%` }} /></div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="sa-grid-2eq">
+        <div className="sa-box">
+          <h3>Service Performance</h3><div className="sa-box-sub">Adoption across all services</div>
+          <div style={{ height: 180, display: 'flex' }}>
+            <ResponsiveContainer width="50%" height="100%">
+              <PieChart>
+                <Pie data={svcData} dataKey="v" nameKey="name" innerRadius={45} outerRadius={70} paddingAngle={2}>
+                  {svcData.map((d, i) => <Cell key={i} fill={d.c} stroke="#131e22" />)}
+                </Pie>
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="sa-adopt">
+              {svcData.slice(0, 5).map((s, i) => (
+                <div key={i} className="sa-ad-row">
+                  <div className="sa-ad-top"><span>{s.name}</span><span className="cnt">{s.v}%</span></div>
+                  <div className="sa-ad-bar"><div className="sa-ad-fill" style={{ width: `${s.v}%`, background: s.c }} /></div>
                 </div>
               ))}
             </div>
           </div>
-        </>
-      )}
+        </div>
+
+        <div className="sa-box">
+          <h3>🍩 Vendors by Type</h3><div className="sa-box-sub">Vendors per profession</div>
+          <div style={{ height: 180, display: 'flex' }}>
+            <ResponsiveContainer width="50%" height="100%">
+              <PieChart>
+                <Pie data={vTypes} dataKey="v" nameKey="n" innerRadius={45} outerRadius={70} paddingAngle={2}>
+                  {vTypes.map((d, i) => <Cell key={i} fill={d.c} stroke="#131e22" />)}
+                </Pie>
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="sa-legend">
+              {vTypes.map((t, i) => (
+                <div key={i} className="sa-legend-item">
+                  <span className="sa-legend-dot" style={{ background: t.c }} />{t.n}
+                  <span className="sa-legend-val">{t.v}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function StatCard({ label, value, trend, cls }) {
+  return (
+    <div className="sa-card">
+      <div className="sa-label">{label}</div>
+      <div className="sa-value">{value}</div>
+      <div className={`sa-trend ${cls}`}>{trend}</div>
     </div>
+  );
+}
+
+/* ---------- SERVICES ---------- */
+function ServicesView({ services }) {
+  return (
+    <>
+      <div className="sa-section-title">Your Services</div>
+      <div className="sa-svc-bars">
+        {services.map((s, i) => {
+          const pct = 40 + (i * 13) % 60;
+          const c = ['#2dd4bf','#60a5fa','#a78bfa','#fbbf24','#4ade80','#f472b6','#22d3ee','#fb923c'][i % 8];
+          return (
+            <div key={s.id} className="sa-svc-bar-row">
+              <div className="sa-sbr-icon" style={{ background: c + '1a', border: `1px solid ${c}` }}>{s.icon}</div>
+              <div className="sa-sbr-name">{s.name}</div>
+              <div className="sa-sbr-progress">
+                <div className="sa-sbr-prog-top"><span>{pct} buyers</span><span>{pct}% adoption</span></div>
+                <div className="sa-sbr-bar"><div className="sa-sbr-fill" style={{ width: `${pct}%`, background: c }} /></div>
+              </div>
+              <div className="sa-sbr-price">${s.price || 25}<span style={{ color: '#7c9199', fontSize: 11 }}>/mo</span></div>
+            </div>
+          );
+        })}
+      </div>
+      <p className="sa-hint">💡 Service prices &amp; adoption. Editing wires up next.</p>
+    </>
+  );
+}
+
+/* ---------- BUYERS ---------- */
+function BuyersView({ vendors, services }) {
+  return (
+    <>
+      <div className="sa-section-title">All Buyers</div>
+      <div className="sa-table-wrap">
+        <table>
+          <thead><tr><th>Buyer</th><th>Plan</th><th>Status</th><th></th></tr></thead>
+          <tbody>
+            {vendors.length === 0 ? (
+              <tr><td colSpan="4" className="sa-empty">No buyers yet.</td></tr>
+            ) : vendors.map(v => (
+              <tr key={v.id}>
+                <td className="biz">{v.business_name}</td>
+                <td>{v.plan}</td>
+                <td><span className={`sa-badge ${v.status}`}>{v.status}</span></td>
+                <td><button className="sa-view-btn">Manage</button></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
+  );
+}
+
+/* ---------- BILLING ---------- */
+function BillingView() {
+  return (
+    <>
+      <div className="sa-stats">
+        <StatCard label="MRR" value="$6.4k" trend="▲ 8.2%" cls="up" />
+        <StatCard label="ARR" value="$76.8k" trend="▲ 8.2%" cls="up" />
+        <StatCard label="Active Trials" value="19" trend="7 ending soon" cls="warn" />
+        <StatCard label="Past Due" value="3" trend="$210 owed" cls="neutral" />
+      </div>
+      <div className="sa-section-title" style={{ marginTop: 6 }}>Plans</div>
+      <div className="sa-table-wrap">
+        <table>
+          <thead><tr><th>Plan</th><th>Price</th><th>Buyers</th><th>Revenue</th></tr></thead>
+          <tbody>
+            <tr><td className="biz">Starter</td><td>$29/mo</td><td>49</td><td>$1.4k</td></tr>
+            <tr><td className="biz">Growth</td><td>$59/mo</td><td>58</td><td>$3.4k</td></tr>
+            <tr><td className="biz">Pro</td><td>$79/mo</td><td>21</td><td>$1.6k</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </>
+  );
+}
+
+/* ---------- SUPPORT ---------- */
+function SupportView() {
+  const tickets = [
+    ['BeatDrop DJ', "Can't upload setlist", 'High', 'past', 'Open', 'trial'],
+    ['Glow by Mona', 'Billing question', 'Low', 'trial', 'Resolved', 'active'],
+    ['360 Spin Co', 'Gallery link broken', 'High', 'past', 'Open', 'trial'],
+  ];
+  return (
+    <>
+      <div className="sa-section-title">Support Tickets</div>
+      <div className="sa-table-wrap">
+        <table>
+          <thead><tr><th>Buyer</th><th>Issue</th><th>Priority</th><th>Status</th></tr></thead>
+          <tbody>
+            {tickets.map((t, i) => (
+              <tr key={i}>
+                <td className="biz">{t[0]}</td><td>{t[1]}</td>
+                <td><span className={`sa-badge ${t[3]}`}>{t[2]}</span></td>
+                <td><span className={`sa-badge ${t[5]}`}>{t[4]}</span></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
+  );
+}
+
+/* ---------- SETTINGS ---------- */
+function SettingsView() {
+  return (
+    <div className="sa-box" style={{ padding: 0 }}>
+      <SettingRow name="Platform Name" desc="Shown across all panels" input="Vowflo" />
+      <SettingRow name="Default Trial Length" desc="Days before billing starts" input="14" small />
+      <SettingRow name="Maintenance Mode" desc="Take platform offline" toggle />
+      <SettingRow name="Auto-suspend Past Due" desc="After 7 days unpaid" toggle on />
+    </div>
+  );
+}
+function SettingRow({ name, desc, input, small, toggle, on }) {
+  const [isOn, setOn] = useState(on);
+  return (
+    <div className="sa-settings-row">
+      <div><div className="sr-name">{name}</div><div className="sr-desc">{desc}</div></div>
+      {input && <input className="sa-set-input" style={{ width: small ? 80 : 180 }} defaultValue={input} />}
+      {toggle && <div className={`sa-switch ${isOn ? 'on' : ''}`} onClick={() => setOn(!isOn)} />}
+    </div>
+  );
+}
+
+/* ---------- ADMINS ---------- */
+function AdminsView({ user }) {
+  return (
+    <>
+      <div className="sa-section-title">Admin Users</div>
+      <div className="sa-table-wrap">
+        <table>
+          <thead><tr><th>Name</th><th>Email</th><th>Role</th><th></th></tr></thead>
+          <tbody>
+            <tr><td className="biz">{user?.name} (you)</td><td>{user?.email || 'raj@vowflo.com'}</td><td><span className="sa-badge active">super_admin</span></td><td><button className="sa-view-btn">Edit</button></td></tr>
+            <tr><td className="biz">Support Bot</td><td>help@vowflo.com</td><td><span className="sa-badge trial">support</span></td><td><button className="sa-view-btn">Edit</button></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </>
   );
 }
