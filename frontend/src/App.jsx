@@ -9,7 +9,6 @@ import InvoiceView from './pages/InvoiceView';
 import Certificate from './pages/Certificate';
 import ClientPortal from './pages/ClientPortal';
 import CrewCheckin from './pages/CrewCheckin';
-import ReviewForm from './pages/ReviewForm';
 import { getUser } from './lib/api';
 
 export default function App() {
@@ -40,9 +39,6 @@ export default function App() {
   const ck = window.location.pathname.match(/^\/checkin\/([a-f0-9]+)/);
   if (ck) return <CrewCheckin token={ck[1]} />;
 
-  // ⭐ Review form: /review/:vendorId
-  const rv = window.location.pathname.match(/^\/review\/(\d+)/);
-  if (rv) return <ReviewForm vendorId={rv[1]} />;
 
   if (user) {
     if (user.role === 'super_admin') return <Dashboard onLogout={() => setUser(null)} />;
