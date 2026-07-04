@@ -34,6 +34,7 @@ export default function VendorPanel({ onLogout }) {
         <div className={`nav-item ${tab==='dashboard'?'active':''}`} onClick={() => setTab('dashboard')}>📊 Dashboard</div>
         <div className={`nav-item ${tab==='leads'?'active':''}`} onClick={() => setTab('leads')}>📋 Leads</div>
         <div className={`nav-item ${tab==='bookings'?'active':''}`} onClick={() => setTab('bookings')}>📅 Bookings</div>
+        <div className={`nav-item ${tab==='contracts'?'active':''}`} onClick={() => setTab('contracts')}>📄 Contracts</div>
         <div className={`nav-item ${tab==='packages'?'active':''}`} onClick={() => setTab('packages')}>📦 My Packages</div>
         <div className={`nav-item ${tab==='inqform'?'active':''}`} onClick={() => setTab('inqform')}>🎨 Inquiry Form</div>
         <div className={`nav-item ${tab==='services'?'active':''}`} onClick={() => setTab('services')}>🧩 My Services</div>
@@ -45,7 +46,7 @@ export default function VendorPanel({ onLogout }) {
       <main className="main">
         <div className="topbar">
           <div>
-            <h1>{tab === 'dashboard' ? 'Dashboard' : tab === 'refer' ? 'Refer a Friend' : tab === 'leads' ? 'Leads' : tab === 'settings' ? 'Settings' : tab === 'packages' ? 'My Packages' : tab === 'bookings' ? 'Bookings' : tab === 'inqform' ? 'Inquiry Form' : 'My Services'}</h1>
+            <h1>{tab === 'dashboard' ? 'Dashboard' : tab === 'refer' ? 'Refer a Friend' : tab === 'leads' ? 'Leads' : tab === 'settings' ? 'Settings' : tab === 'packages' ? 'My Packages' : tab === 'bookings' ? 'Bookings' : tab === 'inqform' ? 'Inquiry Form' : tab === 'contracts' ? 'Contracts' : 'My Services'}</h1>
             <div className="sub">Welcome back, {user?.name} 👋</div>
           </div>
           <button className="refresh" onClick={load}>🔄 Refresh</button>
@@ -58,6 +59,8 @@ export default function VendorPanel({ onLogout }) {
           <LeadsView />
         ) : tab === 'bookings' ? (
           <BookingsView />
+        ) : tab === 'contracts' ? (
+          <ContractsTab />
         ) : tab === 'inqform' ? (
           <InqFormSettings user={user} />
         ) : tab === 'packages' ? (
@@ -303,8 +306,147 @@ function LeadDetail({ lead, onBack }) {
   );
 }
 
+function ContractsTab() {
+  const [sub, setSub] = useState('list'); // list | setup
+  return (
+    <div style={{ maxWidth: 820 }}>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+        <button className="refresh" onClick={() => setSub('list')}
+          style={{ background: sub === 'list' ? '#2dd4bf' : '#0d1417', color: sub === 'list' ? '#06231f' : '#e6f0f2' }}>📄 All contracts</button>
+        <button className="refresh" onClick={() => setSub('setup')}
+          style={{ background: sub === 'setup' ? '#2dd4bf' : '#0d1417', color: sub === 'setup' ? '#06231f' : '#e6f0f2' }}>🛠️ Contract setup</button>
+      </div>
+      {sub === 'list' ? <AllContracts /> : <ContractSetup />}
+    </div>
+  );
+}
+
+function AllContracts() {
+  const [list, setList] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const S = { draft: '📝', sent: '📨', signed: '✅', void: '🚫' };
+  useEffect(() => {
+    api.allContracts().then(d => setList(d.contracts || [])).catch(() => {}).finally(() => setLoading(false));
+  }, []);
+  function copyLink(token) {
+    navigator.clipboard?.writeText(`https://alphabetaone.com/sign/${token}`);
+  }
+  if (loading) return <div className="loading">Loading…</div>;
+  return (
+    <div className="table-wrap">
+      <table>
+        <thead><tr><th>Client</th><th>Contract</th><th>Status</th><th>Signed</th><th></th></tr></thead>
+        <tbody>
+          {list.length === 0 ? (
+            <tr><td colSpan="5" className="empty">No contracts yet. Create one from a lead, or set up templates in 🛠️ Contract setup.</td></tr>
+          ) : list.map(c => (
+            <tr key={c.id}>
+              <td className="biz">{c.client_name}</td>
+              <td>{c.title}</td>
+              <td>{S[c.status]} {c.status}</td>
+              <td>{c.signed_at ? String(c.signed_at).slice(0, 10) : '—'}</td>
+              <td>{c.status !== 'signed' && <span style={{ cursor: 'pointer', color: '#2dd4bf', fontSize: 12 }} onClick={() => copyLink(c.token)}>🔗 Copy link</span>}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+const CT_PLACEHOLDERS = ['{{client_name}}', '{{client_email}}', '{{event_type}}', '{{event_date}}', '{{location}}', '{{hours}}', '{{guests}}', '{{package_name}}', '{{total_cost}}', '{{deposit}}', '{{balance}}', '{{today_date}}', '{{company_name}}'];
+
+function ContractSetup() {
+  const [tpls, setTpls] = useState([]);
+  const [sel, setSel] = useState(null);
+  const [msg, setMsg] = useState('');
+  const box = { background: '#0d1417', border: '1px solid #223238', borderRadius: 8, color: '#e6f0f2', padding: 9, width: '100%', fontFamily: 'inherit' };
+
+  useEffect(() => { load(); }, []);
+  async function load() {
+    try { const d = await api.ctTemplates(); setTpls(d.templates || []); } catch {}
+  }
+  async function add() {
+    try {
+      const d = await api.addCtTemplate({ name: 'New Contract', body: 'This agreement is between {{company_name}} and {{client_name}} for {{event_type}} on {{event_date}}.\n\nTotal: {{total_cost}} · Deposit: {{deposit}}\n\nI agree to the cancellation policy. [INITIAL]\n\nI agree to the payment schedule. [INITIAL]' });
+      setSel(d.template); load();
+    } catch (e) { setMsg('⚠️ ' + e.message); }
+  }
+  async function save() {
+    if (!sel) return;
+    setMsg('');
+    try { await api.updateCtTemplate(sel.id, sel); setMsg('✅ Saved'); setTimeout(() => setMsg(''), 1500); load(); }
+    catch (e) { setMsg('⚠️ ' + e.message); }
+  }
+  async function del(id) {
+    if (!confirm('Delete this template?')) return;
+    try { await api.deleteCtTemplate(id); setSel(null); load(); } catch {}
+  }
+  function insertAt(txt) {
+    setSel(s => ({ ...s, body: (s.body || '') + ' ' + txt }));
+  }
+
+  if (sel) return (
+    <div className="table-wrap" style={{ padding: 20 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
+        <button className="refresh" onClick={() => setSel(null)}>← All templates</button>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          {msg && <span style={{ fontSize: 13, color: msg[0] === '✅' ? '#4ade80' : '#fb7185' }}>{msg}</span>}
+          <button className="refresh" onClick={() => del(sel.id)}>🗑️</button>
+        </div>
+      </div>
+
+      <label style={{ fontSize: 12, color: '#7c9199' }}>Template name</label>
+      <input style={box} value={sel.name || ''} onChange={e => setSel({ ...sel, name: e.target.value })} />
+
+      <label style={{ fontSize: 12, color: '#7c9199', display: 'block', marginTop: 10 }}>Event type (optional, e.g. Wedding)</label>
+      <input style={box} value={sel.event_type || ''} onChange={e => setSel({ ...sel, event_type: e.target.value })} />
+
+      <label style={{ fontSize: 12, color: '#7c9199', display: 'block', marginTop: 10 }}>Header (optional)</label>
+      <textarea style={{ ...box, minHeight: 50 }} value={sel.header || ''} onChange={e => setSel({ ...sel, header: e.target.value })} />
+
+      <label style={{ fontSize: 12, color: '#7c9199', display: 'block', marginTop: 10 }}>Contract body ✍️</label>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, margin: '6px 0' }}>
+        {CT_PLACEHOLDERS.map(p => (
+          <span key={p} onClick={() => insertAt(p)}
+            style={{ background: '#2dd4bf18', border: '1px solid #2dd4bf44', color: '#2dd4bf', padding: '3px 8px', borderRadius: 12, fontSize: 11, cursor: 'pointer' }}>{p}</span>
+        ))}
+        <span onClick={() => insertAt('[INITIAL]')}
+          style={{ background: '#fbbf2418', border: '1px solid #fbbf2444', color: '#fbbf24', padding: '3px 8px', borderRadius: 12, fontSize: 11, cursor: 'pointer', fontWeight: 700 }}>✍️ [INITIAL] box</span>
+      </div>
+      <textarea style={{ ...box, minHeight: 220 }} value={sel.body || ''} onChange={e => setSel({ ...sel, body: e.target.value })} />
+
+      <label style={{ fontSize: 12, color: '#7c9199', display: 'block', marginTop: 10 }}>Legal terms (optional)</label>
+      <textarea style={{ ...box, minHeight: 80 }} value={sel.legal_terms || ''} onChange={e => setSel({ ...sel, legal_terms: e.target.value })} />
+
+      <button className="refresh" onClick={save} style={{ marginTop: 14, width: '100%', background: '#2dd4bf', color: '#06231f' }}>💾 Save template</button>
+    </div>
+  );
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+        <div style={{ color: '#7c9199', fontSize: 13 }}>🛠️ Build your own contracts — placeholders auto-fill, [INITIAL] adds tap-to-initial boxes</div>
+        <button className="refresh" onClick={add} style={{ background: '#2dd4bf', color: '#06231f' }}>+ New template</button>
+      </div>
+      {msg && <div className="err-banner">{msg}</div>}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: 14 }}>
+        {tpls.length === 0 && <div style={{ color: '#7c9199' }}>No templates yet — create one 👆</div>}
+        {tpls.map(t => (
+          <div key={t.id} className="table-wrap" style={{ padding: 18, cursor: 'pointer' }} onClick={() => setSel(t)}>
+            <div style={{ fontSize: 30 }}>📑</div>
+            <div style={{ fontWeight: 700, marginTop: 6 }}>{t.name}</div>
+            <div style={{ color: '#7c9199', fontSize: 12, marginTop: 4 }}>{t.event_type || 'Any event'} · {(t.body.match(/\[INITIAL\]/g) || []).length} initials</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function ContractsBox({ lead }) {
   const [list, setList] = useState([]);
+  const [tpls, setTpls] = useState([]);
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState('Service Agreement');
   const [body, setBody] = useState('');
@@ -312,7 +454,10 @@ function ContractsBox({ lead }) {
   const [busy, setBusy] = useState(false);
   const box = { background: '#0d1417', border: '1px solid #223238', borderRadius: 8, color: '#e6f0f2', padding: 9, width: '100%' };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    api.ctTemplates().then(d => setTpls(d.templates || [])).catch(() => {});
+  }, []);
   async function load() {
     try { const d = await api.leadContracts(lead.id); setList(d.contracts || []); } catch {}
   }
@@ -345,6 +490,19 @@ function ContractsBox({ lead }) {
 
       {open && (
         <div style={{ marginTop: 10 }}>
+          {tpls.length > 0 && (
+            <select style={{ ...box, marginBottom: 8 }} defaultValue=""
+              onChange={async e => {
+                if (!e.target.value) return;
+                setBusy(true); setMsg('');
+                try { await api.createContractFromTemplate(lead.id, Number(e.target.value)); setMsg('✅ Contract created from template'); setOpen(false); load(); }
+                catch (er) { setMsg('⚠️ ' + er.message); }
+                finally { setBusy(false); }
+              }}>
+              <option value="">📑 Use a template… (auto-fills client info)</option>
+              {tpls.map(t => <option key={t.id} value={t.id}>{t.name}{t.event_type ? ` (${t.event_type})` : ''}</option>)}
+            </select>
+          )}
           <input style={box} value={title} onChange={e => setTitle(e.target.value)} placeholder="Contract title" />
           <textarea style={{ ...box, minHeight: 140, marginTop: 8 }} value={body} onChange={e => setBody(e.target.value)}
             placeholder={`Write your agreement terms here…\n\ne.g. Coverage: ${lead.hours || 8} hours on ${lead.event_date ? String(lead.event_date).slice(0,10) : 'event date'}…`} />
