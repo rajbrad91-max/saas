@@ -7,6 +7,9 @@ import InquiryForm from './pages/InquiryForm';
 import SignContract from './pages/SignContract';
 import InvoiceView from './pages/InvoiceView';
 import Certificate from './pages/Certificate';
+import ClientPortal from './pages/ClientPortal';
+import CrewCheckin from './pages/CrewCheckin';
+import ReviewForm from './pages/ReviewForm';
 import { getUser } from './lib/api';
 
 export default function App() {
@@ -28,6 +31,18 @@ export default function App() {
   // 📜 Signing certificate: /certificate/:token
   const ce = window.location.pathname.match(/^\/certificate\/([a-f0-9]+)/);
   if (ce) return <Certificate token={ce[1]} />;
+
+  // 🌐 Client portal: /portal/:token (pick package + balance)
+  const po = window.location.pathname.match(/^\/portal\/([a-f0-9]+)/);
+  if (po) return <ClientPortal token={po[1]} />;
+
+  // 👷 Crew check-in: /checkin/:token
+  const ck = window.location.pathname.match(/^\/checkin\/([a-f0-9]+)/);
+  if (ck) return <CrewCheckin token={ck[1]} />;
+
+  // ⭐ Review form: /review/:vendorId
+  const rv = window.location.pathname.match(/^\/review\/(\d+)/);
+  if (rv) return <ReviewForm vendorId={rv[1]} />;
 
   if (user) {
     if (user.role === 'super_admin') return <Dashboard onLogout={() => setUser(null)} />;

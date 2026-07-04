@@ -36,6 +36,8 @@ export default function VendorPanel({ onLogout }) {
         <div className={`nav-item ${tab==='leads'?'active':''}`} onClick={() => setTab('leads')}>📋 Leads</div>
         <div className={`nav-item ${tab==='bookings'?'active':''}`} onClick={() => setTab('bookings')}>📅 Bookings</div>
         <div className={`nav-item ${tab==='contracts'?'active':''}`} onClick={() => setTab('contracts')}>📄 Contracts & Invoices</div>
+        <div className={`nav-item ${tab==='crew'?'active':''}`} onClick={() => setTab('crew')}>👷 My Crew</div>
+        <div className={`nav-item ${tab==='reviews'?'active':''}`} onClick={() => setTab('reviews')}>⭐ Reviews</div>
         <div className={`nav-item ${tab==='packages'?'active':''}`} onClick={() => setTab('packages')}>📦 My Packages</div>
         <div className={`nav-item ${tab==='inqform'?'active':''}`} onClick={() => setTab('inqform')}>🎨 Inquiry Form</div>
         <div className={`nav-item ${tab==='services'?'active':''}`} onClick={() => setTab('services')}>🧩 My Services</div>
@@ -47,10 +49,13 @@ export default function VendorPanel({ onLogout }) {
       <main className="main">
         <div className="topbar">
           <div>
-            <h1>{tab === 'dashboard' ? 'Dashboard' : tab === 'refer' ? 'Refer a Friend' : tab === 'leads' ? 'Leads' : tab === 'settings' ? 'Settings' : tab === 'packages' ? 'My Packages' : tab === 'bookings' ? 'Bookings' : tab === 'inqform' ? 'Inquiry Form' : tab === 'contracts' ? 'Contracts & Invoices' : 'My Services'}</h1>
+            <h1>{tab === 'dashboard' ? 'Dashboard' : tab === 'refer' ? 'Refer a Friend' : tab === 'leads' ? 'Leads' : tab === 'settings' ? 'Settings' : tab === 'packages' ? 'My Packages' : tab === 'bookings' ? 'Bookings' : tab === 'inqform' ? 'Inquiry Form' : tab === 'contracts' ? 'Contracts & Invoices' : tab === 'crew' ? 'My Crew' : tab === 'reviews' ? 'Reviews' : 'My Services'}</h1>
             <div className="sub">Welcome back, {user?.name} 👋</div>
           </div>
-          <button className="refresh" onClick={load}>🔄 Refresh</button>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <NotifBell />
+            <button className="refresh" onClick={load}>🔄 Refresh</button>
+          </div>
         </div>
 
         {error && <div className="err-banner">⚠️ {error}</div>}
@@ -62,6 +67,10 @@ export default function VendorPanel({ onLogout }) {
           <BookingsView />
         ) : tab === 'contracts' ? (
           <ContractsTab />
+        ) : tab === 'crew' ? (
+          <CrewView />
+        ) : tab === 'reviews' ? (
+          <ReviewsView user={user} />
         ) : tab === 'inqform' ? (
           <InqFormSettings user={user} />
         ) : tab === 'packages' ? (
@@ -87,6 +96,150 @@ export default function VendorPanel({ onLogout }) {
           </div>
         )}
       </main>
+    </div>
+  );
+}
+
+function NotifBell() {
+  const [open, setOpen] = useState(false);
+  const [data, setData] = useState({ notifications: [], unseen: 0 });
+
+  useEffect(() => { load(); const t = setInterval(load, 60000); return () => clearInterval(t); }, []);
+  function load() { api.notifications().then(setData).catch(() => {}); }
+
+  async function toggle() {
+    const next = !open;
+    setOpen(next);
+    if (next && data.unseen > 0) {
+      await api.notificationsSeen().catch(() => {});
+      setData(d => ({ ...d, unseen: 0 }));
+    }
+  }
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <button className="refresh" onClick={toggle} style={{ position: 'relative' }}>
+        🔔
+        {data.unseen > 0 && (
+          <span style={{ position: 'absolute', top: -5, right: -5, background: '#fb7185', color: '#fff', borderRadius: 12, fontSize: 10, fontWeight: 800, padding: '2px 6px' }}>{data.unseen}</span>
+        )}
+      </button>
+      {open && (
+        <div style={{ position: 'absolute', right: 0, top: 44, width: 320, maxHeight: 400, overflowY: 'auto', background: '#131e22', border: '1px solid #223238', borderRadius: 12, zIndex: 40, boxShadow: '0 10px 30px #00000060' }}>
+          {data.notifications.length === 0 ? (
+            <div style={{ padding: 20, color: '#7c9199', fontSize: 13, textAlign: 'center' }}>No notifications yet 🔕</div>
+          ) : data.notifications.map(n => (
+            <div key={n.id} style={{ padding: '11px 14px', borderBottom: '1px solid #223238', fontSize: 12.5 }}>
+              <div style={{ fontWeight: 700 }}>{n.title}</div>
+              {n.body && <div style={{ color: '#7c9199', marginTop: 2 }}>{n.body}</div>}
+              <div style={{ color: '#4a6169', fontSize: 10.5, marginTop: 3 }}>{String(n.created_at).slice(0, 16).replace('T', ' ')}</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CrewView() {
+  const [crew, setCrew] = useState([]);
+  const [f, setF] = useState({ name: '', role: '', phone: '', email: '' });
+  const [msg, setMsg] = useState('');
+  const box = { background: '#0d1417', border: '1px solid #223238', borderRadius: 8, color: '#e6f0f2', padding: 9 };
+
+  useEffect(() => { load(); }, []);
+  function load() { api.crew().then(d => setCrew(d.crew || [])).catch(() => {}); }
+
+  async function add() {
+    if (!f.name) return setMsg('⚠️ Name required');
+    setMsg('');
+    try { await api.addCrew(f); setF({ name: '', role: '', phone: '', email: '' }); setMsg('✅ Added'); setTimeout(() => setMsg(''), 1500); load(); }
+    catch (e) { setMsg('⚠️ ' + e.message); }
+  }
+  async function del(id) {
+    if (!confirm('Remove this crew member?')) return;
+    try { await api.deleteCrew(id); load(); } catch {}
+  }
+
+  return (
+    <div style={{ maxWidth: 720 }}>
+      <div className="table-wrap" style={{ padding: 18, marginBottom: 16 }}>
+        <h2 style={{ marginTop: 0 }}>➕ Add crew member {msg && <span style={{ fontSize: 13, color: msg[0] === '✅' ? '#4ade80' : '#fb7185' }}>{msg}</span>}</h2>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+          <input style={box} placeholder="Name *" value={f.name} onChange={e => setF({ ...f, name: e.target.value })} />
+          <input style={box} placeholder="Role (e.g. 2nd shooter)" value={f.role} onChange={e => setF({ ...f, role: e.target.value })} />
+          <input style={box} placeholder="Phone" value={f.phone} onChange={e => setF({ ...f, phone: e.target.value })} />
+          <input style={box} placeholder="Email" value={f.email} onChange={e => setF({ ...f, email: e.target.value })} />
+        </div>
+        <button className="refresh" onClick={add} style={{ marginTop: 10, background: '#2dd4bf', color: '#06231f' }}>+ Add to roster</button>
+      </div>
+
+      <div className="table-wrap">
+        <table>
+          <thead><tr><th>Name</th><th>Role</th><th>Phone</th><th>Email</th><th></th></tr></thead>
+          <tbody>
+            {crew.length === 0 ? (
+              <tr><td colSpan="5" className="empty">No crew yet. Add your team above 👆 Then assign them on any booking.</td></tr>
+            ) : crew.map(c => (
+              <tr key={c.id}>
+                <td className="biz">{c.name}</td>
+                <td>{c.role || '—'}</td>
+                <td>{c.phone || '—'}</td>
+                <td>{c.email || '—'}</td>
+                <td><span style={{ cursor: 'pointer' }} onClick={() => del(c.id)}>🗑️</span></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function ReviewsView({ user }) {
+  const [reviews, setReviews] = useState([]);
+  const [msg, setMsg] = useState('');
+
+  useEffect(() => { load(); }, []);
+  function load() { api.reviews().then(d => setReviews(d.reviews || [])).catch(() => {}); }
+
+  function copyLink() {
+    navigator.clipboard?.writeText(`https://alphabetaone.com/review/${user?.vendor_id}`);
+    setMsg('🔗 Review link copied!'); setTimeout(() => setMsg(''), 1500);
+  }
+  async function toggle(id) { try { await api.toggleReview(id); load(); } catch {} }
+  async function del(id) {
+    if (!confirm('Delete this review?')) return;
+    try { await api.deleteReview(id); load(); } catch {}
+  }
+
+  return (
+    <div style={{ maxWidth: 760 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+        <div style={{ color: '#7c9199', fontSize: 13 }}>Share your review link with happy clients ⭐ {msg && <span style={{ color: '#4ade80' }}>{msg}</span>}</div>
+        <button className="refresh" onClick={copyLink} style={{ background: '#2dd4bf', color: '#06231f' }}>🔗 Copy review link</button>
+      </div>
+      <div className="table-wrap">
+        <table>
+          <thead><tr><th>Client</th><th>Rating</th><th>Review</th><th>Visible</th><th></th></tr></thead>
+          <tbody>
+            {reviews.length === 0 ? (
+              <tr><td colSpan="5" className="empty">No reviews yet. Send clients your link! 📨</td></tr>
+            ) : reviews.map(r => (
+              <tr key={r.id}>
+                <td className="biz">{r.name}</td>
+                <td>{'⭐'.repeat(r.rating)}</td>
+                <td style={{ maxWidth: 280, fontSize: 12.5 }}>{r.text}</td>
+                <td>
+                  <span onClick={() => toggle(r.id)} style={{ cursor: 'pointer' }}
+                    className={`badge ${r.approved ? 'active' : 'trial'}`}>{r.approved ? '✅ Shown' : '🕶️ Hidden'}</span>
+                </td>
+                <td><span style={{ cursor: 'pointer' }} onClick={() => del(r.id)}>🗑️</span></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
@@ -175,35 +328,83 @@ function LeadsView() {
   const [leads, setLeads] = useState([]);
   const [sel, setSel] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [view, setView] = useState('active'); // active | history
+  const [checked, setChecked] = useState([]);
+  const [msg, setMsg] = useState('');
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [view]);
   async function load() {
-    setLoading(true);
-    try { const d = await api.leads(); setLeads(d.leads || []); } catch {}
+    setLoading(true); setChecked([]);
+    try {
+      const d = view === 'active' ? await api.leads() : await api.leadsHistory();
+      setLeads(d.leads || []);
+    } catch {}
     finally { setLoading(false); }
+  }
+
+  function toggleCheck(id, e) {
+    e.stopPropagation();
+    setChecked(c => c.includes(id) ? c.filter(x => x !== id) : [...c, id]);
+  }
+
+  async function archiveChecked() {
+    if (!checked.length) return;
+    if (!confirm(`Archive ${checked.length} lead(s)? You can restore them from History.`)) return;
+    try { await api.bulkArchive(checked); setMsg('🗂️ Archived'); setTimeout(() => setMsg(''), 1500); load(); }
+    catch (e) { setMsg('⚠️ ' + e.message); }
+  }
+
+  async function restore(id, e) {
+    e.stopPropagation();
+    try { await api.restoreLead(id); load(); } catch {}
   }
 
   if (sel) return <LeadDetail lead={sel} onBack={() => { setSel(null); load(); }} />;
 
   return (
-    <div className="table-wrap">
-      <table>
-        <thead><tr><th>Name</th><th>Event</th><th>Date</th><th>Status</th></tr></thead>
-        <tbody>
-          {loading ? (
-            <tr><td colSpan="4" className="empty">Loading…</td></tr>
-          ) : leads.length === 0 ? (
-            <tr><td colSpan="4" className="empty">No leads yet. Share your inquiry link! 📨</td></tr>
-          ) : leads.map(l => (
-            <tr key={l.id} onClick={() => setSel(l)} style={{ cursor: 'pointer' }}>
-              <td className="biz">{l.name}</td>
-              <td>{l.event_type}</td>
-              <td>{l.event_date ? String(l.event_date).slice(0, 10) : '—'}</td>
-              <td><span className="badge trial">{l.status}</span></td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="refresh" onClick={() => setView('active')}
+            style={{ background: view === 'active' ? '#2dd4bf' : '#0d1417', color: view === 'active' ? '#06231f' : '#e6f0f2' }}>📋 Active</button>
+          <button className="refresh" onClick={() => setView('history')}
+            style={{ background: view === 'history' ? '#2dd4bf' : '#0d1417', color: view === 'history' ? '#06231f' : '#e6f0f2' }}>📜 History</button>
+        </div>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          {msg && <span style={{ fontSize: 13, color: msg[0] === '⚠' ? '#fb7185' : '#4ade80' }}>{msg}</span>}
+          {view === 'active' && checked.length > 0 && (
+            <button className="refresh" onClick={archiveChecked} style={{ background: '#fb718522', color: '#fb7185' }}>🗂️ Archive ({checked.length})</button>
+          )}
+        </div>
+      </div>
+
+      <div className="table-wrap">
+        <table>
+          <thead><tr>{view === 'active' && <th style={{ width: 34 }}></th>}<th>Name</th><th>Event</th><th>Date</th><th>Status</th>{view === 'history' && <th></th>}</tr></thead>
+          <tbody>
+            {loading ? (
+              <tr><td colSpan="6" className="empty">Loading…</td></tr>
+            ) : leads.length === 0 ? (
+              <tr><td colSpan="6" className="empty">{view === 'active' ? 'No leads yet. Share your inquiry link! 📨' : 'No archived leads 📜'}</td></tr>
+            ) : leads.map(l => (
+              <tr key={l.id} onClick={() => view === 'active' && setSel(l)} style={{ cursor: view === 'active' ? 'pointer' : 'default' }}>
+                {view === 'active' && (
+                  <td onClick={e => toggleCheck(l.id, e)} style={{ cursor: 'pointer' }}>
+                    <input type="checkbox" readOnly checked={checked.includes(l.id)} style={{ accentColor: '#2dd4bf', pointerEvents: 'none' }} />
+                  </td>
+                )}
+                <td className="biz">{l.name}</td>
+                <td>{l.event_type}</td>
+                <td>{l.event_date ? String(l.event_date).slice(0, 10) : '—'}</td>
+                <td><span className="badge trial">{l.status}</span></td>
+                {view === 'history' && (
+                  <td><span style={{ cursor: 'pointer', color: '#2dd4bf', fontSize: 12 }} onClick={e => restore(l.id, e)}>↩️ Restore</span></td>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
@@ -361,6 +562,103 @@ function LeadDetail({ lead, onBack }) {
       <EmailBox lead={lead} />
       <ContractsBox lead={lead} />
       <InvoiceBox lead={lead} />
+      <BookingExtras lead={lead} />
+    </div>
+  );
+}
+
+function BookingExtras({ lead }) {
+  const [flags, setFlags] = useState({ billed: !!lead.billed, delivered: !!lead.delivered, booking_notes: lead.booking_notes || '', ceremony: lead.ceremony || '' });
+  const [crew, setCrew] = useState([]);
+  const [assigned, setAssigned] = useState([]);
+  const [pick, setPick] = useState({ crew_member_id: '', duty: '', arrive_time: '', leave_time: '' });
+  const [msg, setMsg] = useState('');
+  const box = { background: '#0d1417', border: '1px solid #223238', borderRadius: 8, color: '#e6f0f2', padding: 9 };
+
+  useEffect(() => {
+    api.crew().then(d => setCrew(d.crew || [])).catch(() => {});
+    loadAssigned();
+  }, []);
+  function loadAssigned() { api.leadCrew(lead.id).then(d => setAssigned(d.assignments || [])).catch(() => {}); }
+
+  async function saveFlags(next) {
+    const merged = { ...flags, ...next };
+    setFlags(merged);
+    try { await api.leadFlags(lead.id, merged); setMsg('✅ Saved'); setTimeout(() => setMsg(''), 1200); }
+    catch (e) { setMsg('⚠️ ' + e.message); }
+  }
+
+  async function assign() {
+    if (!pick.crew_member_id) return;
+    try {
+      await api.assignCrew(lead.id, { ...pick, crew_member_id: Number(pick.crew_member_id) });
+      setPick({ crew_member_id: '', duty: '', arrive_time: '', leave_time: '' });
+      loadAssigned();
+    } catch (e) { setMsg('⚠️ ' + e.message); }
+  }
+  async function unassign(id) {
+    try { await api.unassignCrew(id); loadAssigned(); } catch {}
+  }
+  function copyCheckin(token) {
+    navigator.clipboard?.writeText(`https://alphabetaone.com/checkin/${token}`);
+    setMsg('🔗 Check-in link copied!'); setTimeout(() => setMsg(''), 1500);
+  }
+  function copyPortal() {
+    navigator.clipboard?.writeText(`https://alphabetaone.com/portal/${lead.client_token}`);
+    setMsg('🔗 Client portal link copied!'); setTimeout(() => setMsg(''), 1500);
+  }
+
+  return (
+    <div style={{ marginTop: 20 }}>
+      <h3 style={{ margin: '0 0 10px' }}>📦 Booking extras {msg && <span style={{ fontSize: 13, color: msg[0] === '⚠' ? '#fb7185' : '#4ade80' }}>{msg}</span>}</h3>
+
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+        {lead.client_token && (
+          <button className="refresh" onClick={copyPortal} style={{ background: '#2dd4bf', color: '#06231f' }}>🔗 Client portal link</button>
+        )}
+        <button className="refresh" onClick={() => saveFlags({ billed: !flags.billed })}
+          style={{ background: flags.billed ? '#4ade8022' : '#0d1417', color: flags.billed ? '#4ade80' : '#e6f0f2' }}>
+          🧾 Billed {flags.billed ? '✓' : ''}
+        </button>
+        <button className="refresh" onClick={() => saveFlags({ delivered: !flags.delivered })}
+          style={{ background: flags.delivered ? '#4ade8022' : '#0d1417', color: flags.delivered ? '#4ade80' : '#e6f0f2' }}>
+          📦 Delivered {flags.delivered ? '✓' : ''}
+        </button>
+      </div>
+
+      <label style={{ fontSize: 11, color: '#7c9199' }}>💒 Ceremony details</label>
+      <textarea style={{ ...box, width: '100%', minHeight: 46 }} value={flags.ceremony}
+        onChange={e => setFlags({ ...flags, ceremony: e.target.value })} onBlur={() => saveFlags({})} />
+
+      <label style={{ fontSize: 11, color: '#7c9199', display: 'block', marginTop: 10 }}>📝 Booking notes (private)</label>
+      <textarea style={{ ...box, width: '100%', minHeight: 60 }} value={flags.booking_notes}
+        onChange={e => setFlags({ ...flags, booking_notes: e.target.value })} onBlur={() => saveFlags({})} />
+
+      <h3 style={{ margin: '16px 0 8px' }}>👷 Event crew</h3>
+      {crew.length === 0 ? (
+        <div style={{ color: '#7c9199', fontSize: 13 }}>No crew in your roster yet — add them in 👷 My Crew tab first.</div>
+      ) : (
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
+          <select style={box} value={pick.crew_member_id} onChange={e => setPick({ ...pick, crew_member_id: e.target.value })}>
+            <option value="">👤 Pick crew…</option>
+            {crew.map(c => <option key={c.id} value={c.id}>{c.name}{c.role ? ` (${c.role})` : ''}</option>)}
+          </select>
+          <input style={{ ...box, width: 130 }} placeholder="Duty" value={pick.duty} onChange={e => setPick({ ...pick, duty: e.target.value })} />
+          <input style={{ ...box, width: 96 }} placeholder="Arrive" value={pick.arrive_time} onChange={e => setPick({ ...pick, arrive_time: e.target.value })} />
+          <input style={{ ...box, width: 96 }} placeholder="Leave" value={pick.leave_time} onChange={e => setPick({ ...pick, leave_time: e.target.value })} />
+          <button className="refresh" onClick={assign} style={{ background: '#2dd4bf', color: '#06231f' }}>+ Assign</button>
+        </div>
+      )}
+      {assigned.map(a => (
+        <div key={a.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#0d1417', border: '1px solid #223238', borderRadius: 8, padding: '8px 12px', fontSize: 13, marginBottom: 6 }}>
+          <span>👤 <b>{a.name}</b>{a.duty ? ` · ${a.duty}` : ''}{a.arrive_time ? ` · ${a.arrive_time}→${a.leave_time || '?'}` : ''}
+            {a.checked_in_at ? ' · ✅ in' : ''}{a.checked_out_at ? ' · 🏁 out' : ''}</span>
+          <span style={{ display: 'flex', gap: 10 }}>
+            <span style={{ cursor: 'pointer', color: '#2dd4bf' }} onClick={() => copyCheckin(a.checkin_token)}>🔗 Check-in link</span>
+            <span style={{ cursor: 'pointer' }} onClick={() => unassign(a.id)}>🗑️</span>
+          </span>
+        </div>
+      ))}
     </div>
   );
 }
