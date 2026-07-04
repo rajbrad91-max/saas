@@ -220,9 +220,63 @@ function StatCard({ label, value, trend, cls }) {
 /* ---------- SERVICES & PACKAGES ---------- */
 function ServicesView({ packages, onReload }) {
   const [editMode, setEditMode] = useState(false);
+  const [offers, setOffers] = useState([]);
+  const [showOffer, setShowOffer] = useState(false);
+  const [nf, setNf] = useState({ code: '', label: '', percent_off: '', ends_at: '' });
+
+  useEffect(() => { loadOffers(); }, []);
+  async function loadOffers() {
+    try { const d = await api.offers(); setOffers(d.offers || []); } catch {}
+  }
+  async function addOffer() {
+    if (!nf.code || !nf.percent_off) return alert('Code + percent needed');
+    try {
+      await api.createOffer({ ...nf, percent_off: Number(nf.percent_off) });
+      setNf({ code: '', label: '', percent_off: '', ends_at: '' });
+      setShowOffer(false);
+      loadOffers();
+    } catch (e) { alert(e.message); }
+  }
+
   return (
     <>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+      {/* OFFERS */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+        <div className="sa-section-title" style={{ margin: 0 }}>Offers & Discounts 🎁</div>
+        <button className="sa-view-btn" onClick={() => setShowOffer(!showOffer)}>
+          {showOffer ? '✕ Cancel' : '+ New Offer'}
+        </button>
+      </div>
+
+      {showOffer && (
+        <div className="sa-box" style={{ marginBottom: 12 }}>
+          <div className="sa-offer-form">
+            <input placeholder="CODE (e.g. SUMMER20)" value={nf.code} onChange={e => setNf({ ...nf, code: e.target.value.toUpperCase() })} />
+            <input placeholder="Label" value={nf.label} onChange={e => setNf({ ...nf, label: e.target.value })} />
+            <input placeholder="% off" type="number" value={nf.percent_off} onChange={e => setNf({ ...nf, percent_off: e.target.value })} style={{ width: 80 }} />
+            <input placeholder="Ends" type="date" value={nf.ends_at} onChange={e => setNf({ ...nf, ends_at: e.target.value })} />
+            <button className="sa-btn-teal" onClick={addOffer}>Create</button>
+          </div>
+        </div>
+      )}
+
+      {offers.length > 0 && (
+        <div className="sa-offer-list">
+          {offers.map(o => (
+            <div key={o.id} className={`sa-offer-chip ${o.active ? '' : 'off'}`}>
+              <span className="oc-code">🏷️ {o.code}</span>
+              <span className="oc-pct">{o.percent_off}% off</span>
+              {o.label && <span className="oc-label">{o.label}</span>}
+              {o.ends_at && <span className="oc-end">till {String(o.ends_at).slice(0, 10)}</span>}
+              <button onClick={async () => { await api.toggleOffer(o.id); loadOffers(); }} title="toggle">{o.active ? '🟢' : '⚪'}</button>
+              <button onClick={async () => { if (confirm('Delete offer?')) { await api.deleteOffer(o.id); loadOffers(); } }} title="delete">🗑️</button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* PACKAGES */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4, marginTop: 18 }}>
         <div className="sa-section-title" style={{ margin: 0 }}>Packages & Pricing 🎁</div>
         <button className={`sa-view-btn ${editMode ? 'active-btn' : ''}`}
           onClick={() => setEditMode(!editMode)}>

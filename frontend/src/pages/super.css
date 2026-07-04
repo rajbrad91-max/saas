@@ -143,3 +143,16 @@
 .sa-price-edit input { width: 52px; padding: 4px 6px; background: var(--bg); border: 1px solid var(--teal-2); border-radius: 6px; color: var(--text); font-size: 12px; }
 .sa-price-edit button { background: var(--teal); border: none; border-radius: 6px; padding: 4px 8px; cursor: pointer; font-size: 12px; }
 .sa-price-edit span { color: var(--muted); }
+
+/* Offers */
+.sa-offer-form { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.sa-offer-form input { padding: 8px 11px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; color: var(--text); font-size: 12px; }
+.sa-btn-teal { background: var(--teal); color: #06231f; border: none; padding: 8px 16px; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 12px; }
+.sa-offer-list { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 6px; }
+.sa-offer-chip { display: flex; align-items: center; gap: 8px; background: var(--panel); border: 1px solid var(--teal-2); border-radius: 20px; padding: 6px 12px; font-size: 12px; }
+.sa-offer-chip.off { opacity: 0.45; border-color: var(--line); }
+.sa-offer-chip .oc-code { font-weight: 700; color: var(--teal); }
+.sa-offer-chip .oc-pct { font-weight: 700; }
+.sa-offer-chip .oc-label { color: var(--muted); }
+.sa-offer-chip .oc-end { color: var(--muted); font-size: 11px; }
+.sa-offer-chip button { background: none; border: none; cursor: pointer; font-size: 13px; padding: 0 2px; }

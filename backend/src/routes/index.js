@@ -55,4 +55,38 @@ router.put('/package-items/:id/price', requireAuth, requireSuperAdmin, async (re
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// 🎁 OFFERS
+// Public: list active offers
+router.get('/offers', async (req, res) => {
+  const { rows } = await query('SELECT * FROM offers ORDER BY created_at DESC');
+  res.json({ offers: rows });
+});
+
+// 🔒 Create offer
+router.post('/offers', requireAuth, requireSuperAdmin, async (req, res) => {
+  const { code, label, percent_off, starts_at, ends_at } = req.body;
+  if (!code || !percent_off) return res.status(400).json({ error: 'Missing code or percent' });
+  try {
+    const { rows } = await query(
+      `INSERT INTO offers (code,label,percent_off,starts_at,ends_at)
+       VALUES ($1,$2,$3,$4,$5) RETURNING *`,
+      [code.toUpperCase(), label || null, percent_off, starts_at || null, ends_at || null]
+    );
+    res.status(201).json({ offer: rows[0] });
+  } catch (e) {
+    if (e.code === '23505') return res.status(409).json({ error: 'Code already exists' });
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// 🔒 Toggle / delete offer
+router.put('/offers/:id/toggle', requireAuth, requireSuperAdmin, async (req, res) => {
+  await query('UPDATE offers SET active = NOT active WHERE id=$1', [req.params.id]);
+  res.json({ ok: true });
+});
+router.delete('/offers/:id', requireAuth, requireSuperAdmin, async (req, res) => {
+  await query('DELETE FROM offers WHERE id=$1', [req.params.id]);
+  res.json({ ok: true });
+});
+
 export default router;
