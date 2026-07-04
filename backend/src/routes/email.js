@@ -71,6 +71,44 @@ function transporterFor(s) {
   return null;
 }
 
+/* ── 📑 EMAIL TEMPLATES ── */
+router.get('/templates', requireAuth, async (req, res) => {
+  const v = vid(req);
+  const { rows } = await query('SELECT * FROM email_templates WHERE vendor_id=$1 ORDER BY id', [v]);
+  res.json({ templates: rows });
+});
+
+router.post('/templates', requireAuth, async (req, res) => {
+  const v = vid(req);
+  const { name, subject, body } = req.body;
+  if (!name || !subject || !body) return res.status(400).json({ error: 'Name, subject, body required' });
+  const { rows } = await query(
+    'INSERT INTO email_templates (vendor_id, name, subject, body) VALUES ($1,$2,$3,$4) RETURNING *',
+    [v, name, subject, body]);
+  res.status(201).json({ template: rows[0] });
+});
+
+router.put('/templates/:id', requireAuth, async (req, res) => {
+  const v = vid(req);
+  const { rows: own } = await query('SELECT vendor_id FROM email_templates WHERE id=$1', [req.params.id]);
+  if (!own[0]) return res.status(404).json({ error: 'Not found' });
+  if (req.user.role !== 'super_admin' && own[0].vendor_id !== v) return res.status(403).json({ error: 'Forbidden' });
+  const { name, subject, body } = req.body;
+  const { rows } = await query(
+    `UPDATE email_templates SET name=COALESCE($1,name), subject=COALESCE($2,subject), body=COALESCE($3,body)
+     WHERE id=$4 RETURNING *`, [name ?? null, subject ?? null, body ?? null, req.params.id]);
+  res.json({ template: rows[0] });
+});
+
+router.delete('/templates/:id', requireAuth, async (req, res) => {
+  const v = vid(req);
+  const { rows: own } = await query('SELECT vendor_id FROM email_templates WHERE id=$1', [req.params.id]);
+  if (!own[0]) return res.status(404).json({ error: 'Not found' });
+  if (req.user.role !== 'super_admin' && own[0].vendor_id !== v) return res.status(403).json({ error: 'Forbidden' });
+  await query('DELETE FROM email_templates WHERE id=$1', [req.params.id]);
+  res.json({ ok: true });
+});
+
 // POST /api/email/lead/:leadId → send email to the lead's client
 router.post('/lead/:leadId', requireAuth, async (req, res) => {
   const { subject, body } = req.body;

@@ -13,6 +13,10 @@ import inquirySettingsRoutes from './routes/inquirySettings.js';
 import emailRoutes from './routes/email.js';
 import contractRoutes from './routes/contracts.js';
 import invoiceRoutes from './routes/invoices.js';
+import crewRoutes from './routes/crew.js';
+import notificationRoutes from './routes/notifications.js';
+import reviewRoutes from './routes/reviews.js';
+import portalRoutes from './routes/portal.js';
 
 dotenv.config();
 
@@ -34,6 +38,10 @@ app.use('/api/inquiry-settings', inquirySettingsRoutes);
 app.use('/api/email', emailRoutes);
 app.use('/api/contracts', contractRoutes);
 app.use('/api/invoices', invoiceRoutes);
+app.use('/api/crew', crewRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/reviews', reviewRoutes);
+app.use('/api/portal', portalRoutes);
 
 app.get('/', (req, res) => {
   res.json({ status: 'ok', service: 'Vowflo API', version: '2.0.0' });
