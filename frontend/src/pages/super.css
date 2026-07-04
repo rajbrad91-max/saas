@@ -132,3 +132,6 @@
 @media (max-width:920px) {
   .sa-pkg-grid { grid-template-columns:1fr; }
 }
+
+/* Flag emoji font (Windows support) */
+.sa-cty-flag { font-family: "Twemoji Country Flags", -apple-system, "Segoe UI", sans-serif; }
