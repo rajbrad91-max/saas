@@ -135,3 +135,11 @@
 
 /* Flag emoji font (Windows support) */
 .sa-cty-flag { font-family: "Twemoji Country Flags", -apple-system, "Segoe UI", sans-serif; }
+
+/* Price editing */
+.sa-view-btn.active-btn { background: var(--teal-soft); color: var(--teal); border-color: var(--teal-2); }
+.sa-pkg-item-col { flex-direction: column; align-items: stretch; gap: 6px; }
+.sa-price-edit { display: flex; align-items: center; gap: 4px; font-size: 12px; }
+.sa-price-edit input { width: 52px; padding: 4px 6px; background: var(--bg); border: 1px solid var(--teal-2); border-radius: 6px; color: var(--text); font-size: 12px; }
+.sa-price-edit button { background: var(--teal); border: none; border-radius: 6px; padding: 4px 8px; cursor: pointer; font-size: 12px; }
+.sa-price-edit span { color: var(--muted); }

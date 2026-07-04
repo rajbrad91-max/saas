@@ -1,5 +1,6 @@
 import express from 'express';
 import { query } from '../config/db.js';
+import { requireAuth, requireSuperAdmin } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -16,24 +17,42 @@ router.get('/services', async (req, res) => {
 // Public: packages (3 tiers) with their items nested
 router.get('/packages', async (req, res) => {
   try {
-    const { rows: packages } = await query(
-      'SELECT * FROM packages ORDER BY sort_order'
-    );
-    const { rows: items } = await query(
-      'SELECT * FROM package_items ORDER BY package_id, sort_order'
-    );
+    const { rows: packages } = await query('SELECT * FROM packages ORDER BY sort_order');
+    const { rows: items } = await query('SELECT * FROM package_items ORDER BY package_id, sort_order');
     const result = packages.map(p => ({
       ...p,
       included: items.filter(i => i.package_id === p.id && i.is_included),
       addons: items.filter(i => i.package_id === p.id && i.is_addon),
-      standalone: items.filter(
-        i => i.package_id === p.id && !i.is_included && !i.is_addon
-      ),
+      standalone: items.filter(i => i.package_id === p.id && !i.is_included && !i.is_addon),
     }));
     res.json({ packages: result });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
+});
+
+// 🔒 Super admin: update a PACKAGE price
+router.put('/packages/:id/price', requireAuth, requireSuperAdmin, async (req, res) => {
+  const { price_monthly, price_annual, price_annual_regular } = req.body;
+  try {
+    await query(
+      `UPDATE packages SET price_monthly=$1, price_annual=$2, price_annual_regular=$3 WHERE id=$4`,
+      [price_monthly ?? null, price_annual ?? null, price_annual_regular ?? null, req.params.id]
+    );
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// 🔒 Super admin: update a PACKAGE ITEM price
+router.put('/package-items/:id/price', requireAuth, requireSuperAdmin, async (req, res) => {
+  const { price_monthly, price_annual, price_annual_regular } = req.body;
+  try {
+    await query(
+      `UPDATE package_items SET price_monthly=$1, price_annual=$2, price_annual_regular=$3 WHERE id=$4`,
+      [price_monthly ?? null, price_annual ?? null, price_annual_regular ?? null, req.params.id]
+    );
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 export default router;

@@ -40,6 +40,10 @@ export const api = {
   services: () => request('/services'),
   packages: () => request('/packages'),
   trialEligible: () => request('/auth/trial-eligible'),
+  updatePackagePrice: (id, prices) =>
+    request(`/packages/${id}/price`, { method: 'PUT', body: JSON.stringify(prices) }),
+  updateItemPrice: (id, prices) =>
+    request(`/package-items/${id}/price`, { method: 'PUT', body: JSON.stringify(prices) }),
   myServices: () => request('/vendors/me/services'),
   toggleService: (vendorId, serviceId, enabled) =>
     request(`/vendors/${vendorId}/services/${serviceId}/toggle`, {

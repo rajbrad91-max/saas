@@ -74,7 +74,7 @@ export default function Dashboard({ onLogout }) {
         {loading ? <div className="sa-loading">Loading…</div> : (
           <>
             {view === 'dashboard' && <DashboardView vendors={vendors} packages={packages} trials={trials} />}
-            {view === 'services' && <ServicesView packages={packages} />}
+            {view === 'services' && <ServicesView packages={packages} onReload={load} />}
             {view === 'buyers' && <BuyersView vendors={vendors} />}
             {view === 'billing' && <BillingView packages={packages} />}
             {view === 'support' && <SupportView />}
@@ -218,21 +218,51 @@ function StatCard({ label, value, trend, cls }) {
 }
 
 /* ---------- SERVICES & PACKAGES ---------- */
-function ServicesView({ packages }) {
+function ServicesView({ packages, onReload }) {
+  const [editMode, setEditMode] = useState(false);
   return (
     <>
-      <div className="sa-section-title">Packages & Pricing 🎁</div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+        <div className="sa-section-title" style={{ margin: 0 }}>Packages & Pricing 🎁</div>
+        <button className={`sa-view-btn ${editMode ? 'active-btn' : ''}`}
+          onClick={() => setEditMode(!editMode)}>
+          {editMode ? '✓ Done' : '✏️ Edit Prices'}
+        </button>
+      </div>
       <div className="sa-hint" style={{ marginTop: 0, marginBottom: 14 }}>
-        Every package includes a 30-day free trial. Editing prices wires up next.
+        {editMode ? 'Click any price to change it, then Save.' : 'Every package includes a 30-day free trial.'}
       </div>
       <div className="sa-pkg-grid">
-        {packages.map(p => <PackageCard key={p.id} pkg={p} />)}
+        {packages.map(p => <PackageCard key={p.id} pkg={p} editMode={editMode} onSaved={onReload} />)}
       </div>
     </>
   );
 }
 
-function PackageCard({ pkg }) {
+function PriceEditor({ item, isPackage, onSaved }) {
+  const [m, setM] = useState(item.price_monthly ?? '');
+  const [y, setY] = useState(item.price_annual ?? '');
+  const [saving, setSaving] = useState(false);
+  async function save() {
+    setSaving(true);
+    try {
+      const body = { price_monthly: m === '' ? null : Number(m), price_annual: y === '' ? null : Number(y), price_annual_regular: item.price_annual_regular ?? null };
+      if (isPackage) await api.updatePackagePrice(item.id, body);
+      else await api.updateItemPrice(item.id, body);
+      onSaved && onSaved();
+    } catch (e) { alert('Save failed: ' + e.message); }
+    finally { setSaving(false); }
+  }
+  return (
+    <div className="sa-price-edit">
+      <span>$</span><input value={m} onChange={e => setM(e.target.value)} placeholder="mo" />
+      <span>/yr $</span><input value={y} onChange={e => setY(e.target.value)} placeholder="yr" />
+      <button onClick={save} disabled={saving}>{saving ? '…' : '💾'}</button>
+    </div>
+  );
+}
+
+function PackageCard({ pkg, editMode, onSaved }) {
   const hasAnnual = pkg.price_annual != null;
   return (
     <div className="sa-pkg-card">
@@ -245,15 +275,17 @@ function PackageCard({ pkg }) {
       </div>
 
       {pkg.price_monthly != null ? (
-        <div className="sa-pkg-price">
-          <span className="amt">{money(pkg.price_monthly)}</span><span className="per">/mo</span>
-          {hasAnnual && (
-            <div className="sa-pkg-annual">
-              or <b>{money(pkg.price_annual)}</b>/yr
-              {pkg.price_annual_regular && <s>{money(pkg.price_annual_regular)}</s>}
-            </div>
-          )}
-        </div>
+        editMode ? <PriceEditor item={pkg} isPackage onSaved={onSaved} /> : (
+          <div className="sa-pkg-price">
+            <span className="amt">{money(pkg.price_monthly)}</span><span className="per">/mo</span>
+            {hasAnnual && (
+              <div className="sa-pkg-annual">
+                or <b>{money(pkg.price_annual)}</b>/yr
+                {pkg.price_annual_regular && <s>{money(pkg.price_annual_regular)}</s>}
+              </div>
+            )}
+          </div>
+        )
       ) : (
         <div className="sa-pkg-price"><span className="amt-sm">À la carte</span></div>
       )}
@@ -276,11 +308,13 @@ function PackageCard({ pkg }) {
         <div className="sa-pkg-sec">
           <div className="sa-pkg-sec-label">SERVICES</div>
           {pkg.standalone.map(i => (
-            <div key={i.id} className="sa-pkg-item">
+            <div key={i.id} className="sa-pkg-item sa-pkg-item-col">
               <span>{i.icon} {i.name}{i.detail ? ` · ${i.detail}` : ''}</span>
-              <span className="sa-pkg-iprice">
-                {money(i.price_monthly)}{i.price_annual ? ` · ${money(i.price_annual)}/yr` : ''}
-              </span>
+              {editMode ? <PriceEditor item={i} onSaved={onSaved} /> : (
+                <span className="sa-pkg-iprice">
+                  {money(i.price_monthly)}{i.price_annual ? ` · ${money(i.price_annual)}/yr` : ''}
+                </span>
+              )}
             </div>
           ))}
         </div>
@@ -290,11 +324,12 @@ function PackageCard({ pkg }) {
         <div className="sa-pkg-sec">
           <div className="sa-pkg-sec-label">➕ ADD-ONS</div>
           {pkg.addons.map(i => (
-            <div key={i.id} className="sa-pkg-item">
+            <div key={i.id} className="sa-pkg-item sa-pkg-item-col">
               <span>{i.icon} {i.name}{i.detail ? ` · ${i.detail}` : ''}</span>
-              <span className="sa-pkg-iprice">
-                {money(i.price_monthly)}{i.price_annual ? ` · ${money(i.price_annual)}/yr` : ''}
-              </span>
+              {editMode ? <PriceEditor item={i} onSaved={onSaved} /> : (
+                <span className="sa-pkg-iprice">
+                  {money(i.price_monthly)}{i.price_annual ? ` · ${money(i.price_annual)}/yr` : ''}</span>
+              )}
             </div>
           ))}
         </div>
