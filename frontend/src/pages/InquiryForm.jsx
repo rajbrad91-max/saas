@@ -31,6 +31,23 @@ export default function InquiryForm({ vendorId }) {
 
   const isWedding = f.event_type === 'Wedding';
 
+  // ⏱️ Auto-calc hours from start + end time
+  function calcHours(from, to) {
+    if (!from || !to) return '';
+    const [fh, fm] = from.split(':').map(Number);
+    const [th, tm] = to.split(':').map(Number);
+    let mins = (th * 60 + tm) - (fh * 60 + fm);
+    if (mins < 0) mins += 24 * 60; // handle overnight
+    return (mins / 60).toFixed(1).replace(/\.0$/, '');
+  }
+  function setTime(k, v) {
+    setF(s => {
+      const next = { ...s, [k]: v };
+      next.hours = calcHours(k === 'timing_from' ? v : s.timing_from, k === 'timing_to' ? v : s.timing_to);
+      return next;
+    });
+  }
+
   if (done) return (
     <div className="iq-wrap">
       <div className="iq-card iq-done">
@@ -71,10 +88,12 @@ export default function InquiryForm({ vendorId }) {
 
         <div className="iq-row">
           <div><label>Start time</label>
-            <input type="time" value={f.timing_from} onChange={e => set('timing_from', e.target.value)} /></div>
+            <input type="time" value={f.timing_from} onChange={e => setTime('timing_from', e.target.value)} /></div>
           <div><label>End time</label>
-            <input type="time" value={f.timing_to} onChange={e => set('timing_to', e.target.value)} /></div>
+            <input type="time" value={f.timing_to} onChange={e => setTime('timing_to', e.target.value)} /></div>
         </div>
+
+        {f.hours && <div className="iq-hours">⏱️ Total coverage: <b>{f.hours} hours</b></div>}
 
         <label>Location / Venue</label>
         <input value={f.location} onChange={e => set('location', e.target.value)} placeholder="Venue name or address" />
