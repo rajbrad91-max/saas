@@ -6,9 +6,11 @@ export default function Selling({ onSignup, onGoLogin }) {
   const [form, setForm] = useState({ businessName: '', email: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [trialOk, setTrialOk] = useState(true);
 
   useEffect(() => {
     api.services().then(d => setServices(d.services)).catch(() => {});
+    api.trialEligible().then(d => setTrialOk(d.eligible)).catch(() => {});
   }, []);
 
   function set(k, v) { setForm(f => ({ ...f, [k]: v })); }
@@ -58,18 +60,30 @@ export default function Selling({ onSignup, onGoLogin }) {
 
       <section className="sell-signup" id="signup">
         <div className="signup-box">
-          <h2>Start your free trial</h2>
-          <label>Business name</label>
-          <input value={form.businessName} onChange={e => set('businessName', e.target.value)} placeholder="Sunny Studios" />
-          <label>Email</label>
-          <input value={form.email} onChange={e => set('email', e.target.value)} placeholder="you@business.com" />
-          <label>Password</label>
-          <input type="password" value={form.password} onChange={e => set('password', e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleSignup()} />
-          {error && <div className="sell-error">⚠️ {error}</div>}
-          <button className="sell-btn" onClick={handleSignup} disabled={loading}>
-            {loading ? 'Creating…' : 'Create account'}
-          </button>
+          {trialOk ? (
+            <>
+              <h2>Start your free trial 🎁</h2>
+              <label>Business name</label>
+              <input value={form.businessName} onChange={e => set('businessName', e.target.value)} placeholder="Sunny Studios" />
+              <label>Email</label>
+              <input value={form.email} onChange={e => set('email', e.target.value)} placeholder="you@business.com" />
+              <label>Password</label>
+              <input type="password" value={form.password} onChange={e => set('password', e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleSignup()} />
+              {error && <div className="sell-error">⚠️ {error}</div>}
+              <button className="sell-btn" onClick={handleSignup} disabled={loading}>
+                {loading ? 'Creating…' : 'Create account'}
+              </button>
+            </>
+          ) : (
+            <>
+              <h2>Free trials used up 🔒</h2>
+              <p style={{ color: '#7c9199', margin: '8px 0 16px', fontSize: 14 }}>
+                You've already used your free trials. Choose a paid plan to keep going. 💳
+              </p>
+              <button className="sell-btn" onClick={onGoLogin}>View paid plans</button>
+            </>
+          )}
         </div>
       </section>
     </div>

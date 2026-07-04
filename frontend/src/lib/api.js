@@ -39,6 +39,7 @@ export const api = {
   vendors: () => request('/vendors'),
   services: () => request('/services'),
   packages: () => request('/packages'),
+  trialEligible: () => request('/auth/trial-eligible'),
   myServices: () => request('/vendors/me/services'),
   toggleService: (vendorId, serviceId, enabled) =>
     request(`/vendors/${vendorId}/services/${serviceId}/toggle`, {
