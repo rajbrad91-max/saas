@@ -476,11 +476,15 @@ function CalendarView() {
 function DashHome({ goTab }) {
   const [leads, setLeads] = useState([]);
   const [bookings, setBookings] = useState([]);
+  const [albums, setAlbums] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([api.leads().catch(() => ({ leads: [] })), api.bookings().catch(() => ({ bookings: [] }))])
-      .then(([l, b]) => { setLeads(l.leads || []); setBookings(b.bookings || []); })
+    Promise.all([
+      api.leads().catch(() => ({ leads: [] })),
+      api.bookings().catch(() => ({ bookings: [] })),
+      api.albums().catch(() => ({ albums: [] })),
+    ]).then(([l, b, a]) => { setLeads(l.leads || []); setBookings(b.bookings || []); setAlbums(a.albums || []); })
       .finally(() => setLoading(false));
   }, []);
 
@@ -488,66 +492,78 @@ function DashHome({ goTab }) {
 
   const newLeads = leads.filter(l => l.status === 'new').length;
   const booked = leads.filter(l => l.status === 'booked').length;
-  const recent = leads.slice(0, 5);
+  const photoSel = albums.reduce((n, a) => n + (Number(a.selected_count) > 0 ? 1 : 0), 0);
+  const recent = leads.slice(0, 6);
   const upcoming = bookings
     .filter(b => b.event_date && new Date(b.event_date) >= new Date(new Date().toDateString()))
     .sort((a, b) => new Date(a.event_date) - new Date(b.event_date))
-    .slice(0, 5);
+    .slice(0, 6);
   const SB = { new: 'trial', contacted: 'trial', quoted: 'trial', booked: 'active', completed: 'active', cancelled: 'past' };
+  const mName = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+  const dParts = (d) => { const x = new Date(d); return { day: x.getDate(), mon: mName[x.getMonth()], dow: x.toLocaleDateString('en',{weekday:'long'}) }; };
 
   return (
     <>
-      {/* 📊 Stats — same as perfectposes */}
-      <div className="stats" style={{ gridTemplateColumns: 'repeat(3,1fr)' }}>
-        <div className="card"><div className="label">📋 Total Leads</div><div className="value">{leads.length}</div></div>
-        <div className="card"><div className="label">🆕 New Leads</div><div className="value">{newLeads}</div></div>
-        <div className="card"><div className="label">✅ Booked</div><div className="value">{booked}</div></div>
-      </div>
+      <div className="dash-grid">
+        <div className="dash-left">
+          {/* 🟢 4 tiles */}
+          <div className="stats" style={{ gridTemplateColumns: 'repeat(2,1fr)' }}>
+            <div className="card"><div className="label">📋 Total Leads</div><div className="value">{leads.length}</div></div>
+            <div className="card"><div className="label">🆕 New Leads</div><div className="value">{newLeads}</div></div>
+            <div className="card"><div className="label">✅ Booked</div><div className="value">{booked}</div></div>
+            <div className="card" onClick={() => goTab('galleries')} style={{ cursor: 'pointer' }}><div className="label">📸 Photo Selection</div><div className="value">{photoSel}</div></div>
+          </div>
 
-      {/* 📋 Recent Leads */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-        <h2 style={{ margin: 0 }}>📋 Recent Leads</h2>
-        <button className="refresh" onClick={() => goTab('leads')} style={{ padding: '6px 14px', fontSize: 12 }}>View all →</button>
-      </div>
-      <div className="table-wrap" style={{ marginBottom: 24 }}>
-        <table>
-          <thead><tr><th>Name</th><th>Event</th><th>Date</th><th>Status</th></tr></thead>
-          <tbody>
-            {recent.length === 0 ? (
-              <tr><td colSpan="4" className="empty">No leads yet. Share your inquiry link! 📨</td></tr>
-            ) : recent.map(l => (
-              <tr key={l.id} onClick={() => goTab('leads')} style={{ cursor: 'pointer' }}>
-                <td className="biz">{l.name}</td>
-                <td>{l.event_type}</td>
-                <td>{l.event_date ? String(l.event_date).slice(0, 10) : '—'}</td>
-                <td><span className={`badge ${SB[l.status] || 'trial'}`}>{l.status}</span></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+          {/* 🟡 Recent Leads */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '20px 0 10px' }}>
+            <h2 style={{ margin: 0 }}>📋 Recent Leads</h2>
+            <button className="refresh" onClick={() => goTab('leads')} style={{ padding: '6px 14px', fontSize: 12 }}>View all →</button>
+          </div>
+          <div className="table-wrap">
+            <table>
+              <thead><tr><th>Name</th><th>Event</th><th>Date</th><th>Status</th></tr></thead>
+              <tbody>
+                {recent.length === 0 ? (
+                  <tr><td colSpan="4" className="empty">No leads yet. Share your inquiry link! 📨</td></tr>
+                ) : recent.map(l => (
+                  <tr key={l.id} onClick={() => goTab('leads')} style={{ cursor: 'pointer' }}>
+                    <td className="biz">{l.name}</td>
+                    <td>{l.event_type}</td>
+                    <td>{l.event_date ? String(l.event_date).slice(0, 10) : '—'}</td>
+                    <td><span className={`badge ${SB[l.status] || 'trial'}`}>{l.status}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
 
-      {/* 📅 Upcoming Events */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-        <h2 style={{ margin: 0 }}>📅 Upcoming Events</h2>
-        <button className="refresh" onClick={() => goTab('bookings')} style={{ padding: '6px 14px', fontSize: 12 }}>View all →</button>
-      </div>
-      <div className="table-wrap">
-        <table>
-          <thead><tr><th>Client</th><th>Event</th><th>Date</th><th>Balance</th></tr></thead>
-          <tbody>
-            {upcoming.length === 0 ? (
-              <tr><td colSpan="4" className="empty">No upcoming events. Book a lead to see it here 🗓️</td></tr>
-            ) : upcoming.map(b => (
-              <tr key={b.id} onClick={() => goTab('bookings')} style={{ cursor: 'pointer' }}>
-                <td className="biz">{b.name}</td>
-                <td>{b.event_type}</td>
-                <td>{String(b.event_date).slice(0, 10)}</td>
-                <td style={{ color: Number(b.money?.balance) > 0 ? 'var(--amber)' : 'var(--green)' }}>${b.money?.balance ?? 0}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        {/* 🔵 Upcoming Events (right column) */}
+        <div className="dash-right">
+          <h2 style={{ margin: '0 0 14px' }}>📅 Upcoming Events</h2>
+          {upcoming.length === 0 ? (
+            <div className="table-wrap" style={{ padding: 30, textAlign: 'center', color: 'var(--muted)' }}>No upcoming events 🗓️</div>
+          ) : upcoming.map(b => {
+            const d = dParts(b.event_date);
+            return (
+              <div key={b.id} className="ev-card" onClick={() => goTab('bookings')}>
+                <div className="ev-date">
+                  <div className="ev-day">{d.day}</div>
+                  <div className="ev-mon">{d.mon}</div>
+                  <div className="ev-dow">{d.dow}</div>
+                </div>
+                <div className="ev-body">
+                  <div className="ev-name">{b.name}</div>
+                  <div className="ev-type">{b.event_type}{b.package_snapshot?.name ? ` · ${b.package_snapshot.name}` : ''}</div>
+                  {(b.timing_from || b.timing_to) && <div className="ev-line">🕐 {b.timing_from || '?'} — {b.timing_to || '?'}</div>}
+                  {b.location && <div className="ev-line">📍 {b.location}</div>}
+                  {b.phone && <div className="ev-line">📞 {b.phone}</div>}
+                  {b.email && <div className="ev-line">✉️ {b.email}</div>}
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </>
   );
