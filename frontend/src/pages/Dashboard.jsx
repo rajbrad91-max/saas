@@ -74,7 +74,6 @@ export default function Dashboard({ onLogout }) {
               <div className="sa-sub">Welcome back, {user?.name} 👋</div>
             </div>
           </div>
-          <div className="sa-role-pill">🔑 super_admin</div>
         </div>
 
         {loading ? <div className="sa-loading">Loading…</div> : (
