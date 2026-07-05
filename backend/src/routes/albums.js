@@ -6,6 +6,7 @@ import path from 'path';
 import jwt from 'jsonwebtoken';
 import { query } from '../config/db.js';
 import { requireAuth } from '../middleware/auth.js';
+import { getFaceDescriptors, findMatches } from '../lib/faceEngine.js';
 
 const router = express.Router();
 const ROOT = '/var/www/vowflo/storage/galleries';
@@ -125,6 +126,60 @@ router.get('/file/:photoId/:type', async (req, res) => {
     const full = path.join(ROOT, rel);
     if (!fs.existsSync(full)) return res.status(404).json({ error: 'File missing' });
     res.sendFile(full);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// 🧠 index faces for an album (runs detection on all un-indexed photos)
+router.post('/:id/index-faces', requireAuth, async (req, res) => {
+  const v = vid(req);
+  try {
+    const { rows: a } = await query('SELECT id FROM albums WHERE id=$1 AND vendor_id=$2', [req.params.id, v]);
+    if (!a[0]) return res.status(404).json({ error: 'Album not found' });
+
+    const { rows: photos } = await query(
+      'SELECT id, preview_path FROM photos WHERE album_id=$1 AND face_indexed=false', [req.params.id]);
+
+    let done = 0, faces = 0;
+    for (const p of photos) {
+      try {
+        const full = path.join(ROOT, p.preview_path);
+        if (!fs.existsSync(full)) continue;
+        const found = await getFaceDescriptors(full);
+        await query('UPDATE photos SET faces=$1, face_count=$2, face_indexed=true WHERE id=$3',
+          [JSON.stringify(found), found.length, p.id]);
+        done++; faces += found.length;
+      } catch (e) { /* skip bad image */ }
+    }
+    res.json({ indexed: done, faces, remaining: photos.length - done });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// 🔍 search album by selfie → returns matching photo IDs (vendor preview/testing)
+router.post('/:id/face-search', requireAuth, upload.single('selfie'), async (req, res) => {
+  const v = vid(req);
+  try {
+    const { rows: a } = await query('SELECT id FROM albums WHERE id=$1 AND vendor_id=$2', [req.params.id, v]);
+    if (!a[0]) return res.status(404).json({ error: 'Album not found' });
+    if (!req.file) return res.status(400).json({ error: 'No selfie uploaded' });
+
+    const q = await getFaceDescriptors(req.file.path);
+    fs.unlinkSync(req.file.path);
+    if (!q.length) return res.status(400).json({ error: 'No face found in selfie' });
+    const query_desc = q[0].descriptor;
+
+    const { rows: photos } = await query(
+      'SELECT id, faces FROM photos WHERE album_id=$1 AND face_indexed=true AND face_count>0', [req.params.id]);
+
+    // flatten each photo's faces into candidates
+    const candidates = [];
+    for (const p of photos) {
+      for (const f of (p.faces || [])) candidates.push({ photo_id: p.id, descriptor: f.descriptor });
+    }
+    const matches = findMatches(query_desc, candidates, 0.5);
+    // dedupe photo ids (best distance per photo)
+    const seen = new Set(); const ids = [];
+    for (const m of matches) { if (!seen.has(m.photo_id)) { seen.add(m.photo_id); ids.push(m.photo_id); } }
+    res.json({ matches: ids.length, photo_ids: ids });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
