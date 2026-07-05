@@ -46,6 +46,8 @@ export const api = {
     request(`/package-items/${id}/price`, { method: 'PUT', body: JSON.stringify(prices) }),
   updateServicePrice: (id, prices) =>
     request(`/services/${id}/price`, { method: 'PUT', body: JSON.stringify(prices) }),
+  updateCountryPrices: (type, id, country_prices) =>
+    request(`/country-prices/${type}/${id}`, { method: 'PUT', body: JSON.stringify({ country_prices }) }),
   offers: () => request('/offers'),
   createOffer: (data) => request('/offers', { method: 'POST', body: JSON.stringify(data) }),
   toggleOffer: (id) => request(`/offers/${id}/toggle`, { method: 'PUT' }),

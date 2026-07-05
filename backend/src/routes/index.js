@@ -1,26 +1,55 @@
 import express from 'express';
+import geoip from 'geoip-lite';
 import { query } from '../config/db.js';
 import { requireAuth, requireSuperAdmin } from '../middleware/auth.js';
 
 const router = express.Router();
 
+// 🌍 currency symbol per country
+const CURRENCY = { US:'$', CA:'C$', GB:'£', IN:'₹', AU:'A$', EU:'€' };
+
+// resolve a visitor's geo → { code, currency }
+function geoFrom(req) {
+  const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket?.remoteAddress || '';
+  const g = geoip.lookup(ip);
+  if (!g) return { code: 'default', region: null, currency: '$' };
+  // British Columbia exception → CA-BC
+  const code = (g.country === 'CA' && g.region === 'BC') ? 'CA-BC' : g.country;
+  const currency = CURRENCY[g.country] || '$';
+  return { code, region: g.region, currency };
+}
+
+// pick the right price for a row given geo
+function priceFor(row, geo, baseField = 'price') {
+  const cp = row.country_prices || {};
+  if (geo.code !== 'default' && cp[geo.code] != null) return Number(cp[geo.code]);
+  if (geo.code === 'CA-BC' && cp['CA'] != null) return Number(cp['CA']); // BC falls back to CA
+  if (cp.default != null) return Number(cp.default);
+  return Number(row[baseField]); // ultimate fallback = base USD price
+}
+
 router.get('/hello', (req, res) => {
   res.json({ message: 'Hello from Vowflo API! 👋' });
 });
 
-// Public: list all services (legacy)
+// Public: list all services (legacy) — geo-priced
 router.get('/services', async (req, res) => {
+  const geo = geoFrom(req);
   const { rows } = await query('SELECT * FROM services ORDER BY id');
-  res.json({ services: rows });
+  const services = rows.map(s => ({ ...s, price: priceFor(s, geo), currency: geo.currency, geo_code: geo.code }));
+  res.json({ services, geo: geo.code, currency: geo.currency });
 });
 
 // Public: packages (3 tiers) with their items nested
 router.get('/packages', async (req, res) => {
   try {
+    const geo = geoFrom(req);
     const { rows: packages } = await query('SELECT * FROM packages ORDER BY sort_order');
     const { rows: items } = await query('SELECT * FROM package_items ORDER BY package_id, sort_order');
     const result = packages.map(p => ({
       ...p,
+      price_monthly: p.price_monthly != null ? priceFor(p, geo, 'price_monthly') : p.price_monthly,
+      currency: geo.currency,
       included: items.filter(i => i.package_id === p.id && i.is_included),
       addons: items.filter(i => i.package_id === p.id && i.is_addon),
       standalone: items.filter(i => i.package_id === p.id && !i.is_included && !i.is_addon),
@@ -63,6 +92,18 @@ router.put('/services/:id/price', requireAuth, requireSuperAdmin, async (req, re
       `UPDATE services SET price=$1, price_annual=$2, price_annual_regular=$3 WHERE id=$4`,
       [price ?? 0, price_annual ?? null, price_annual_regular ?? null, req.params.id]
     );
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// 🔒 Super admin: set country-specific prices (services or packages)
+// body: { type:'service'|'package', country_prices:{ default:14.99, CA:18, 'CA-BC':20 } }
+router.put('/country-prices/:type/:id', requireAuth, requireSuperAdmin, async (req, res) => {
+  const { type, id } = req.params;
+  const { country_prices } = req.body;
+  const table = type === 'package' ? 'packages' : 'services';
+  try {
+    await query(`UPDATE ${table} SET country_prices=$1 WHERE id=$2`, [JSON.stringify(country_prices || {}), id]);
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });

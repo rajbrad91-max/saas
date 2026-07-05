@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { api, getUser, clearSession } from '../lib/api';
+import { COUNTRIES } from '../lib/countries';
 import {
   ResponsiveContainer, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ComposedChart, Bar, Line
@@ -325,7 +326,7 @@ function StandaloneServices() {
             <div style={{ fontSize: 26 }}>{s.icon}</div>
             <div style={{ fontWeight: 700 }}>{s.name}{s.is_addon ? ' · add-on' : ''}</div>
             {edit
-              ? <ServicePriceEditor service={s} onSaved={load} />
+              ? <><ServicePriceEditor service={s} onSaved={load} /><CountryPriceEditor type="service" item={s} onSaved={load} /></>
               : <>
                   <div style={{ fontSize: 22, fontWeight: 800 }}>{s.tiers ? 'from ' : ''}${s.price}<span style={{ fontSize: 12, color: 'var(--muted)' }}>/mo</span>{s.price_annual ? <span style={{ fontSize: 12, color: 'var(--muted)', display: 'block', fontWeight: 600 }}>${s.price_annual}/yr</span> : null}</div>
                   {s.tiers && (
@@ -342,6 +343,49 @@ function StandaloneServices() {
         ))}
       </div>
     </>
+  );
+}
+
+function CountryPriceEditor({ type, item, baseField = 'price', onSaved }) {
+  const [cp, setCp] = useState(item.country_prices || {});
+  const [country, setCountry] = useState('CA-BC');
+  const [val, setVal] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  async function save(next) {
+    setSaving(true);
+    try { await api.updateCountryPrices(type, item.id, next); setCp(next); onSaved && onSaved(); }
+    catch (e) { alert('Save failed: ' + e.message); }
+    finally { setSaving(false); }
+  }
+  function add() {
+    if (val === '') return;
+    save({ ...cp, [country]: Number(val) });
+    setVal('');
+  }
+  function remove(code) {
+    const n = { ...cp }; delete n[code]; save(n);
+  }
+  const nameOf = (c) => COUNTRIES.find(x => x.code === c)?.name || c;
+  const box = { background: 'var(--panel-2)', border: '1px solid var(--line)', borderRadius: 6, color: 'var(--text)', padding: '6px 8px' };
+
+  return (
+    <div style={{ marginTop: 8, borderTop: '1px dashed var(--line)', paddingTop: 8 }}>
+      <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 6 }}>🌍 Country exceptions (default = USD)</div>
+      {Object.entries(cp).map(([c, p]) => (
+        <div key={c} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, padding: '2px 0' }}>
+          <span>{nameOf(c)}</span>
+          <span style={{ display: 'flex', gap: 8 }}><b>${p}</b><span style={{ cursor: 'pointer' }} onClick={() => remove(c)}>🗑️</span></span>
+        </div>
+      ))}
+      <div style={{ display: 'flex', gap: 5, marginTop: 6 }}>
+        <select style={{ ...box, flex: 1, fontSize: 12 }} value={country} onChange={e => setCountry(e.target.value)}>
+          {COUNTRIES.filter(c => c.code !== 'default').map(c => <option key={c.code} value={c.code}>{c.name}</option>)}
+        </select>
+        <input style={{ ...box, width: 60 }} type="number" placeholder="$" value={val} onChange={e => setVal(e.target.value)} />
+        <button className="sa-btn-teal" onClick={add} disabled={saving} style={{ padding: '5px 10px' }}>+</button>
+      </div>
+    </div>
   );
 }
 
@@ -414,7 +458,7 @@ function PackageCard({ pkg, editMode, onSaved }) {
       </div>
 
       {pkg.price_monthly != null ? (
-        editMode ? <PriceEditor item={pkg} isPackage onSaved={onSaved} /> : (
+        editMode ? <><PriceEditor item={pkg} isPackage onSaved={onSaved} /><CountryPriceEditor type="package" item={pkg} baseField="price_monthly" onSaved={onSaved} /></> : (
           <div className="sa-pkg-price">
             <span className="amt">{money(pkg.price_monthly)}</span><span className="per">/mo</span>
             {hasAnnual && (

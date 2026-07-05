@@ -21,6 +21,7 @@ import { gate } from './lib/entitlements.js';
 dotenv.config();
 
 const app = express();
+app.set('trust proxy', true); // 🌍 real client IP behind nginx (for geo pricing)
 const PORT = process.env.PORT || 3001;
 
 app.use(cors());
