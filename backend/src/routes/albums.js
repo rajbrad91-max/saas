@@ -1,8 +1,15 @@
 import express from 'express';
+import multer from 'multer';
+import sharp from 'sharp';
+import fs from 'fs';
+import path from 'path';
+import jwt from 'jsonwebtoken';
 import { query } from '../config/db.js';
 import { requireAuth } from '../middleware/auth.js';
 
 const router = express.Router();
+const ROOT = '/var/www/vowflo/storage/galleries';
+const upload = multer({ dest: '/tmp/vf_uploads', limits: { fileSize: 60 * 1024 * 1024 } });
 
 // which vendor am I?
 function vid(req) { return req.user.vendor_id; }
@@ -54,6 +61,70 @@ router.delete('/:id', requireAuth, async (req, res) => {
     const r = await query('DELETE FROM albums WHERE id=$1 AND vendor_id=$2', [req.params.id, v]);
     if (r.rowCount === 0) return res.status(404).json({ error: 'Not found' });
     res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// 🔒 upload photos → 3-tier WebP pipeline (thumb 800 / preview 2500 / original)
+router.post('/:id/photos', requireAuth, upload.array('photos', 50), async (req, res) => {
+  const v = vid(req);
+  try {
+    const { rows: a } = await query('SELECT id FROM albums WHERE id=$1 AND vendor_id=$2', [req.params.id, v]);
+    if (!a[0]) return res.status(404).json({ error: 'Album not found' });
+
+    const dir = path.join(ROOT, String(v), String(req.params.id));
+    fs.mkdirSync(dir, { recursive: true });
+
+    const saved = [];
+    for (const f of req.files || []) {
+      const base = Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+      const origName = `${base}_orig${path.extname(f.originalname) || '.jpg'}`;
+      const thumbName = `${base}_thumb.webp`;
+      const prevName = `${base}_preview.webp`;
+
+      // original (as-is, for download)
+      fs.copyFileSync(f.path, path.join(dir, origName));
+      // preview 2500px webp
+      await sharp(f.path).rotate().resize(2500, 2500, { fit: 'inside', withoutEnlargement: true }).webp({ quality: 82 }).toFile(path.join(dir, prevName));
+      // thumb 800px webp
+      await sharp(f.path).rotate().resize(800, 800, { fit: 'inside', withoutEnlargement: true }).webp({ quality: 78 }).toFile(path.join(dir, thumbName));
+      fs.unlinkSync(f.path);
+
+      const rel = (n) => `${v}/${req.params.id}/${n}`;
+      const { rows } = await query(
+        `INSERT INTO photos (album_id, vendor_id, filename, storage_path, thumb_path, preview_path)
+         VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
+        [req.params.id, v, f.originalname, rel(origName), rel(thumbName), rel(prevName)]);
+      saved.push(rows[0]);
+    }
+    res.status(201).json({ uploaded: saved.length, photos: saved });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// 🔒 delete a photo (tenant-checked)
+router.delete('/:id/photos/:photoId', requireAuth, async (req, res) => {
+  const v = vid(req);
+  try {
+    const r = await query('DELETE FROM photos WHERE id=$1 AND album_id=$2 AND vendor_id=$3', [req.params.photoId, req.params.id, v]);
+    if (r.rowCount === 0) return res.status(404).json({ error: 'Not found' });
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// 🔒 serve a gallery file — token via header OR ?token= (for <img src>). type = thumb|preview|orig
+router.get('/file/:photoId/:type', async (req, res) => {
+  const SECRET = process.env.JWT_SECRET || 'dev-secret-change-me';
+  const tok = (req.headers.authorization?.split(' ')[1]) || req.query.token;
+  let user;
+  try { user = jwt.verify(tok, SECRET); } catch { return res.status(401).json({ error: 'Invalid token' }); }
+  const v = user.vendor_id;
+  try {
+    const { rows } = await query('SELECT * FROM photos WHERE id=$1 AND vendor_id=$2', [req.params.photoId, v]);
+    if (!rows[0]) return res.status(404).json({ error: 'Not found' });
+    const p = rows[0];
+    const rel = req.params.type === 'orig' ? p.storage_path : req.params.type === 'preview' ? p.preview_path : p.thumb_path;
+    const full = path.join(ROOT, rel);
+    if (!fs.existsSync(full)) return res.status(404).json({ error: 'File missing' });
+    res.sendFile(full);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

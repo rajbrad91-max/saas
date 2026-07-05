@@ -113,6 +113,26 @@ export const api = {
   leadFlags: (id, data) => request(`/leads/${id}/flags`, { method: 'PUT', body: JSON.stringify(data) }),
   crew: () => request('/crew'),
   addCrew: (data) => request('/crew', { method: 'POST', body: JSON.stringify(data) }),
+  // 📸 galleries
+  albums: () => request('/albums'),
+  createAlbum: (data) => request('/albums', { method: 'POST', body: JSON.stringify(data) }),
+  album: (id) => request(`/albums/${id}`),
+  deleteAlbum: (id) => request(`/albums/${id}`, { method: 'DELETE' }),
+  deletePhoto: (albumId, photoId) => request(`/albums/${albumId}/photos/${photoId}`, { method: 'DELETE' }),
+  uploadPhotos: async (albumId, files) => {
+    const fd = new FormData();
+    [...files].forEach(f => fd.append('photos', f));
+    const token = localStorage.getItem('vowflo_token');
+    const res = await fetch(`/api/albums/${albumId}/photos`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: fd,
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'Upload failed');
+    return data;
+  },
+  fileUrl: (photoId, type) => `/api/albums/file/${photoId}/${type}`,
   updateCrew: (id, data) => request(`/crew/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteCrew: (id) => request(`/crew/${id}`, { method: 'DELETE' }),
   leadCrew: (leadId) => request(`/crew/lead/${leadId}`),
