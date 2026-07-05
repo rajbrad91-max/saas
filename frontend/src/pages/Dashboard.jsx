@@ -327,7 +327,7 @@ function StandaloneServices() {
             <div style={{ fontWeight: 700 }}>{s.name}{s.is_addon ? ' · add-on' : ''}</div>
             {edit
               ? <ServicePriceEditor service={s} onSaved={load} />
-              : <div style={{ fontSize: 22, fontWeight: 800 }}>${s.price}<span style={{ fontSize: 12, color: 'var(--muted)' }}>/mo</span></div>}
+              : <div style={{ fontSize: 22, fontWeight: 800 }}>${s.price}<span style={{ fontSize: 12, color: 'var(--muted)' }}>/mo</span>{s.price_annual ? <span style={{ fontSize: 12, color: 'var(--muted)', display: 'block', fontWeight: 600 }}>${s.price_annual}/yr</span> : null}</div>}
           </div>
         ))}
       </div>
@@ -337,19 +337,33 @@ function StandaloneServices() {
 
 function ServicePriceEditor({ service, onSaved }) {
   const [p, setP] = useState(service.price ?? '');
+  const [pa, setPa] = useState(service.price_annual ?? '');
   const [saving, setSaving] = useState(false);
   async function save() {
     setSaving(true);
-    try { await api.updateServicePrice(service.id, p === '' ? 0 : Number(p)); onSaved && onSaved(); }
-    catch (e) { alert('Save failed: ' + e.message); }
+    try {
+      await api.updateServicePrice(service.id, {
+        price: p === '' ? 0 : Number(p),
+        price_annual: pa === '' ? null : Number(pa),
+        price_annual_regular: service.price_annual_regular ?? null,
+      });
+      onSaved && onSaved();
+    } catch (e) { alert('Save failed: ' + e.message); }
     finally { setSaving(false); }
   }
   return (
-    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-      <span style={{ color: 'var(--muted)' }}>$</span>
-      <input type="number" value={p} onChange={e => setP(e.target.value)}
-        style={{ width: 70, background: 'var(--panel-2)', border: '1px solid var(--line)', borderRadius: 6, color: 'var(--text)', padding: '5px 8px' }} />
-      <button className="sa-btn-teal" onClick={save} disabled={saving} style={{ padding: '5px 12px' }}>{saving ? '…' : 'Save'}</button>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
+        <span style={{ color: 'var(--muted)', fontSize: 12 }}>mo $</span>
+        <input type="number" value={p} onChange={e => setP(e.target.value)}
+          style={{ width: 68, background: 'var(--panel-2)', border: '1px solid var(--line)', borderRadius: 6, color: 'var(--text)', padding: '5px 8px' }} />
+      </div>
+      <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
+        <span style={{ color: 'var(--muted)', fontSize: 12 }}>yr $</span>
+        <input type="number" value={pa} onChange={e => setPa(e.target.value)} placeholder="—"
+          style={{ width: 68, background: 'var(--panel-2)', border: '1px solid var(--line)', borderRadius: 6, color: 'var(--text)', padding: '5px 8px' }} />
+        <button className="sa-btn-teal" onClick={save} disabled={saving} style={{ padding: '5px 12px' }}>{saving ? '…' : 'Save'}</button>
+      </div>
     </div>
   );
 }
