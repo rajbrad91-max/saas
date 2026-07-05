@@ -54,15 +54,18 @@ export default function VendorPanel({ onLogout }) {
     <div className="dash">
       <aside className="sidebar">
         <div className="brand">📸 My Studio<small>VENDOR</small></div>
+        <div className="nav-group">WORK</div>
         <div className={`nav-item ${tab==='dashboard'?'active':''}`} onClick={() => setTab('dashboard')}>📊 Dashboard</div>
         {has('leads') && <div className={`nav-item ${tab==='leads'?'active':''}`} onClick={() => setTab('leads')}>📋 Leads</div>}
         {has('leads') && <div className={`nav-item ${tab==='bookings'?'active':''}`} onClick={() => setTab('bookings')}>📅 Bookings</div>}
         {has('calendar') && <div className={`nav-item ${tab==='calendar'?'active':''}`} onClick={() => setTab('calendar')}>🗓️ Calendar</div>}
         {has('contracts') && <div className={`nav-item ${tab==='contracts'?'active':''}`} onClick={() => setTab('contracts')}>📄 Contracts & Invoices</div>}
         {has('crew') && <div className={`nav-item ${tab==='crew'?'active':''}`} onClick={() => setTab('crew')}>👷 My Crew</div>}
+        <div className="nav-group">SETUP</div>
         {has('leads') && <div className={`nav-item ${tab==='packages'?'active':''}`} onClick={() => setTab('packages')}>📦 My Packages</div>}
         {has('leads') && <div className={`nav-item ${tab==='inqform'?'active':''}`} onClick={() => setTab('inqform')}>🎨 Inquiry Form</div>}
         <div className={`nav-item ${tab==='services'?'active':''}`} onClick={() => setTab('services')}>🧩 My Services</div>
+        <div className="nav-group">ACCOUNT</div>
         <div className={`nav-item ${tab==='refer'?'active':''}`} onClick={() => setTab('refer')}>👥 Refer a Friend</div>
         <div className={`nav-item ${tab==='settings'?'active':''}`} onClick={() => setTab('settings')}>⚙️ Settings</div>
         <div className="logout" onClick={handleLogout}>🚪 Log out</div>
@@ -1431,6 +1434,7 @@ function PkgCard({ pkg, onSaved, onDelete }) {
 
 function SettingsView({ user }) {
   const [s, setS] = useState(null);
+  const [sub, setSub] = useState('prefs'); // prefs | account | email
   const [saved, setSaved] = useState('');
   const [em, setEm] = useState({ email: user?.email || '', password: '' });
   const [pw, setPw] = useState({ current: '', next: '' });
@@ -1463,7 +1467,15 @@ function SettingsView({ user }) {
 
   return (
     <div style={{ maxWidth: 560, display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ display: 'flex', gap: 8 }}>
+        {[['prefs', '🕐 Preferences'], ['account', '🔐 Account'], ['email', '📧 Email']].map(([k, label]) => (
+          <button key={k} className="refresh" onClick={() => setSub(k)}
+            style={{ background: sub === k ? '#2dd4bf' : '#0d1417', color: sub === k ? '#06231f' : '#e6f0f2' }}>{label}</button>
+        ))}
+      </div>
+
       {/* Preferences */}
+      {sub === 'prefs' && (
       <div className="table-wrap" style={{ padding: 22 }}>
         <h2 style={{ marginTop: 0 }}>🕐 Preferences {saved && <span style={{ fontSize: 13, color: '#4ade80' }}>{saved}</span>}</h2>
 
@@ -1492,8 +1504,10 @@ function SettingsView({ user }) {
           onBlur={() => savePrefs(s)} />
         <div style={{ fontSize: 11, color: '#7c9199', marginTop: 4 }}>🌍 Auto-detected from your location</div>
       </div>
+      )}
 
       {/* Account */}
+      {sub === 'account' && (
       <div className="table-wrap" style={{ padding: 22 }}>
         <h2 style={{ marginTop: 0 }}>🔐 Account</h2>
         {msg && <div style={{ padding: 10, borderRadius: 8, marginBottom: 10, fontSize: 13, background: msg[0] === '✅' ? '#4ade8018' : '#fb718518', color: msg[0] === '✅' ? '#4ade80' : '#fb7185' }}>{msg}</div>}
@@ -1508,8 +1522,9 @@ function SettingsView({ user }) {
         <input style={box} type="password" value={pw.next} onChange={e => setPw({ ...pw, next: e.target.value })} placeholder="New password (min 6)" />
         <button className="refresh" onClick={savePw} style={{ marginTop: 8 }}>Change password</button>
       </div>
+      )}
 
-      <EmailSetup />
+      {sub === 'email' && <EmailSetup />}
     </div>
   );
 }

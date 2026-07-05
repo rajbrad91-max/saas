@@ -88,3 +88,30 @@
 .upsell .up-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 24px #2dd4bf44; }
 
 @media (max-width: 820px) { .dash .topbar { border-radius: 14px; } }
+
+/* ── RE-LAYOUT PASS ── */
+/* Sidebar group labels */
+.dash .nav-group { font-size: 10px; letter-spacing: 2.5px; color: #4a6169; font-weight: 800; padding: 14px 12px 5px; }
+
+/* Uniform form controls everywhere in the panel */
+.dash input:not([type=checkbox]):not([type=color]), .dash select, .dash textarea {
+  font-family: inherit; font-size: 13.5px;
+  transition: border-color .15s, box-shadow .15s;
+}
+.dash input:focus, .dash select:focus, .dash textarea:focus {
+  outline: none; border-color: #2dd4bf !important; box-shadow: 0 0 0 3px #2dd4bf22;
+}
+.dash button { font-family: inherit; }
+
+/* Section headings rhythm */
+.dash .main h2 { font-size: 15px; letter-spacing: 0.2px; margin: 4px 0 12px; }
+.dash .main h3 { font-size: 14px; letter-spacing: 0.2px; }
+
+/* Consistent card padding on table-wrap panels used as cards */
+.dash .table-wrap { transition: border-color .18s; }
+.dash .table-wrap:hover { border-color: #2a444e; }
+
+/* Scrollbar polish */
+.dash ::-webkit-scrollbar { width: 9px; height: 9px; }
+.dash ::-webkit-scrollbar-thumb { background: #223238; border-radius: 8px; }
+.dash ::-webkit-scrollbar-thumb:hover { background: #2dd4bf66; }
