@@ -51,7 +51,10 @@ export default function Dashboard({ onLogout }) {
     <div className={`sa-wrap ${collapsed ? 'sa-collapsed' : ''}`} data-sa-theme={saTheme}>
       <aside className={`sa-sidebar ${sidebarOpen ? 'show' : ''}`}>
         <div className="sa-brand"><span className="hex">⬡</span><div>VOWFLO<br /><small>SUPER</small></div></div>
-        <div className="sa-collapse-btn" onClick={() => setCollapsed(c => !c)} title="Auto-hide sidebar">{collapsed ? '»' : '« Auto-hide'}</div>
+        <div className="sa-collapse-row" onClick={() => setCollapsed(c => !c)} title="Auto-hide sidebar">
+          <span className="sa-collapse-lbl">Auto-hide</span>
+          <span className={`sa-collapse-switch ${collapsed ? 'on' : ''}`} />
+        </div>
         {['PLATFORM', 'OPERATE'].map(g => (
           <div key={g}>
             <div className="sa-nav-label">{g}</div>

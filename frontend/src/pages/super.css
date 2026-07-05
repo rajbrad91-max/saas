@@ -178,9 +178,21 @@
 .sa-bell:hover { border-color:var(--teal); transform:translateY(-1px); }
 .sa-bell-badge { position:absolute; top:-5px; right:-5px; background:var(--red); color:#fff; font-size:10px; font-weight:800; min-width:18px; height:18px; padding:0 4px; border-radius:10px; display:flex; align-items:center; justify-content:center; }
 
-/* ◀ sidebar auto-hide */
-.sa-collapse-btn { font-size:11px; color:var(--muted); cursor:pointer; padding:6px 12px 12px; font-weight:700; letter-spacing:0.5px; user-select:none; }
-.sa-collapse-btn:hover { color:var(--teal); }
-.sa-sidebar { transition:margin-left .25s ease; }
-.sa-collapsed .sa-sidebar { margin-left:-225px; }
-.sa-collapsed .sa-collapse-btn { position:absolute; left:225px; top:16px; background:var(--panel); border:1px solid var(--line); border-radius:0 9px 9px 0; padding:8px 10px; }
+/* ◀ sidebar auto-hide → icons only */
+.sa-collapse-row { display:flex; align-items:center; justify-content:space-between; padding:6px 12px 12px; cursor:pointer; user-select:none; }
+.sa-collapse-lbl { font-size:11px; color:var(--muted); font-weight:700; letter-spacing:0.5px; }
+.sa-collapse-switch { width:34px; height:18px; border-radius:20px; background:var(--line); position:relative; transition:background .2s; flex-shrink:0; }
+.sa-collapse-switch::after { content:''; position:absolute; top:2px; left:2px; width:14px; height:14px; border-radius:50%; background:#fff; transition:transform .2s; }
+.sa-collapse-switch.on { background:var(--teal); }
+.sa-collapse-switch.on::after { transform:translateX(16px); }
+
+.sa-sidebar { transition:width .22s ease, padding .22s ease; }
+.sa-collapsed .sa-sidebar { width:66px; padding:20px 8px; overflow:hidden; }
+.sa-collapsed .sa-brand div, .sa-collapsed .sa-nav-label, .sa-collapsed .sa-collapse-lbl { display:none; }
+.sa-collapsed .sa-nav-item { justify-content:center; gap:0; padding:11px 0; }
+.sa-collapsed .sa-nav-item .ico { margin:0; }
+/* hide text after icon in collapsed mode */
+.sa-collapsed .sa-nav-item { font-size:0; }
+.sa-collapsed .sa-nav-item .ico { font-size:16px; }
+.sa-collapsed .sa-collapse-row { justify-content:center; }
+
