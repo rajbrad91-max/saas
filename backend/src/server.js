@@ -14,6 +14,7 @@ import emailRoutes from './routes/email.js';
 import contractRoutes from './routes/contracts.js';
 import invoiceRoutes from './routes/invoices.js';
 import crewRoutes from './routes/crew.js';
+import albumRoutes from './routes/albums.js';
 import notificationRoutes from './routes/notifications.js';
 import portalRoutes from './routes/portal.js';
 import { gate } from './lib/entitlements.js';
@@ -40,6 +41,7 @@ app.use('/api/email', gate('leads'), emailRoutes);
 app.use('/api/contracts', gate('contracts'), contractRoutes);
 app.use('/api/invoices', gate('contracts'), invoiceRoutes);
 app.use('/api/crew', gate('crew'), crewRoutes);
+app.use('/api/albums', gate('galleries'), albumRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/portal', portalRoutes);
 
