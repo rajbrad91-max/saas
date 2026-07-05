@@ -16,6 +16,14 @@ router.get('/settings/platform', requireAuth, requireSuperAdmin, async (req, res
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// 🔄 Super admin: reset ALL face indexing (for engine switch → re-index)
+router.post('/settings/reindex-all', requireAuth, requireSuperAdmin, async (req, res) => {
+  try {
+    const r = await query('UPDATE photos SET faces=NULL, face_count=0, face_indexed=false');
+    res.json({ ok: true, reset: r.rowCount });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // 🔓 Super admin: reveal full AWS creds (edit-mode eye toggle)
 router.get('/settings/platform/reveal', requireAuth, requireSuperAdmin, async (req, res) => {
   try {

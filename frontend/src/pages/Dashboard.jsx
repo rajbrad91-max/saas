@@ -993,6 +993,7 @@ function FaceEngineSettings() {
   const [msg, setMsg] = useState('');
   const [editing, setEditing] = useState(false);
   const [show, setShow] = useState(false);
+  const [reMsg, setReMsg] = useState('');
   const box = { background: 'var(--panel-2)', border: '1px solid var(--line)', borderRadius: 8, color: 'var(--text)', padding: 9, width: '100%' };
   const roBox = { ...box, opacity: 0.7, cursor: 'not-allowed' };
 
@@ -1013,6 +1014,13 @@ function FaceEngineSettings() {
     setEditing(false); setShow(false);
     // re-mask by reloading masked view
     api.platformSettings().then(d => setS(d.settings || {})).catch(() => {});
+  }
+  async function reindex() {
+    if (!confirm('Re-index ALL photos with the current engine? This clears old face data.')) return;
+    setReMsg('🔄 Resetting…');
+    try { const r = await api.reindexAll(); setReMsg(`✅ Reset ${r.reset} photos — open each album and click Index Faces`); }
+    catch (e) { setReMsg('⚠️ ' + e.message); }
+    setTimeout(() => setReMsg(''), 6000);
   }
   const engine = s.face_engine || 'vladmandic';
   // display value: masked unless editing+show
@@ -1036,6 +1044,11 @@ function FaceEngineSettings() {
               {opt === 'aws' ? '☁️ AWS Rekognition' : '🖥️ @vladmandic (free)'}
             </button>
           ))}
+        </div>
+
+        <div style={{ marginBottom: 16 }}>
+          <button className="sa-btn-teal" style={{ padding: '7px 14px', fontSize: 12.5 }} onClick={reindex}>🔄 Re-index all photos</button>
+          {reMsg && <span style={{ marginLeft: 10, fontSize: 12.5, color: 'var(--muted)' }}>{reMsg}</span>}
         </div>
 
         {engine === 'aws' && (
