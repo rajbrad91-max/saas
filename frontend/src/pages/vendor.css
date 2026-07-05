@@ -189,7 +189,7 @@
   .dash, .dash * { max-width:100%; box-sizing:border-box; }
   .dash .main { padding:16px 12px; overflow-x:hidden; }
   .dash-grid, .dash-left, .dash-right { min-width:0; }
-  .dash [style*="grid-template-columns"]:not(.cal-grid):not([style*="repeat(7"]) { grid-template-columns:1fr !important; }
+  .dash [style*="grid-template-columns"]:not(.cal-grid):not(.stats):not([style*="repeat(7"]) { grid-template-columns:1fr !important; }
   input, select, textarea { max-width:100%; }
 
   /* 🟩 4 square tiles in ONE row */
