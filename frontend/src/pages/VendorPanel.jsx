@@ -94,7 +94,7 @@ export default function VendorPanel({ onLogout }) {
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            {has('calendar') && <button className="hdr-icon" onClick={() => setTab('calendar')} title="Calendar">🗓️</button>}
+            {has('calendar') && <button className={`hdr-icon ${tab==='calendar'?'active':''}`} onClick={() => setTab(tab === 'calendar' ? 'dashboard' : 'calendar')} title="Quick Calendar">🗓️</button>}
             <NotifBell />
           </div>
         </div>
