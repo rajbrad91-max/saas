@@ -81,7 +81,9 @@ export default function InquiryForm({ vendorId }) {
         {/* soft brand shade header */}
         <div className="iq-hd">
           <div className="iq-brand">⬡ {c.brand_name || 'Booking Inquiry'}</div>
-          <p className="iq-sub">{c.intro_text || 'Tell us about your event 💫'}</p>
+          {c.intro_link
+            ? <a className="iq-sub iq-sub-link" href={c.intro_link} target="_blank" rel="noopener noreferrer">{c.intro_text || 'Tell us about your event 💫'} ↗</a>
+            : <p className="iq-sub">{c.intro_text || 'Tell us about your event 💫'}</p>}
         </div>
 
         <div className="iq-body">

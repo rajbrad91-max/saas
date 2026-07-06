@@ -1519,6 +1519,9 @@ function InqFormSettings({ user }) {
         <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginTop: 12 }}>Intro text</label>
         <input style={box} value={s.intro_text || ''} onChange={e => setS({ ...s, intro_text: e.target.value })} />
 
+        <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginTop: 10 }}>Intro link (optional — makes intro clickable) 🔗</label>
+        <input style={box} value={s.intro_link || ''} placeholder="https://yoursite.com" onChange={e => setS({ ...s, intro_link: e.target.value })} />
+
         {/* 🎨 Theme + font */}
         <div style={{ display: 'flex', gap: 12, marginTop: 14 }}>
           <div style={{ flex: 1 }}>

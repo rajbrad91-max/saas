@@ -4,7 +4,7 @@ import { requireAuth } from '../middleware/auth.js';
 
 const router = express.Router();
 const DEFAULTS = {
-  brand_name: null, brand_color: '#2dd4bf', intro_text: 'Tell us about your event 💫',
+  brand_name: null, brand_color: '#2dd4bf', intro_text: 'Tell us about your event 💫', intro_link: '',
   show_phone: true, show_guests: true, show_times: true, show_location: true,
   show_getting_ready: true, show_notes: true,
   event_types: ['Wedding', 'Engagement', 'Portrait', 'Event', 'Other'],
@@ -33,19 +33,19 @@ router.put('/', requireAuth, async (req, res) => {
       `INSERT INTO inquiry_settings
         (vendor_id, brand_name, brand_color, intro_text, show_phone, show_guests, show_times,
          show_location, show_getting_ready, show_notes, event_types,
-         theme, font, details_heading, custom_fields, background)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+         theme, font, details_heading, custom_fields, background, intro_link)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
        ON CONFLICT (vendor_id) DO UPDATE SET
         brand_name=$2, brand_color=$3, intro_text=$4, show_phone=$5, show_guests=$6,
         show_times=$7, show_location=$8, show_getting_ready=$9, show_notes=$10,
         event_types=$11, theme=$12, font=$13, details_heading=$14, custom_fields=$15,
-        background=$16, updated_at=NOW()`,
+        background=$16, intro_link=$17, updated_at=NOW()`,
       [v, b.brand_name || null, b.brand_color || '#2dd4bf', b.intro_text || DEFAULTS.intro_text,
        b.show_phone ?? true, b.show_guests ?? true, b.show_times ?? true,
        b.show_location ?? true, b.show_getting_ready ?? true, b.show_notes ?? true,
        JSON.stringify(b.event_types || DEFAULTS.event_types),
        b.theme || 'classic', b.font || 'Inter', b.details_heading || 'Event Details',
-       JSON.stringify(b.custom_fields || []), b.background || 'none']);
+       JSON.stringify(b.custom_fields || []), b.background || 'none', b.intro_link || '']);
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });

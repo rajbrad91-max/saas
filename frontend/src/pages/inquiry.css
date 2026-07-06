@@ -29,6 +29,8 @@
 .iq-hd { position: relative; z-index: 2; padding: 28px 32px 22px; background: linear-gradient(135deg, color-mix(in srgb, var(--brand, #C9A86A) 20%, #F0E9DE), #FAF8F5 75%); border-bottom: 1px solid #ECE4D8; }
 .iq-brand { font-size: 24px; font-weight: 800; color: #4A3E3D; }
 .iq-sub { color: #8A7B6E; font-size: 14px; margin: 5px 0 0; }
+.iq-sub-link { display: inline-block; text-decoration: underline; cursor: pointer; }
+.iq-sub-link:hover { color: var(--brand, #C9A86A); }
 
 .iq-body { position: relative; z-index: 2; padding: 24px 32px 32px; }
 
