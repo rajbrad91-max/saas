@@ -66,6 +66,7 @@ export default function VendorPanel({ onLogout }) {
 
   return (
     <div className={`dash ${collapsed ? 'sidebar-collapsed' : ''}`}>
+      {!collapsed && <div className="sidebar-backdrop" onClick={() => setCollapsed(true)} />}
       <aside className="sidebar">
         <div className="brand">📸 My Studio<small>VENDOR</small></div>
         <div className="nav-group">WORK</div>

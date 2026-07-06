@@ -156,6 +156,7 @@
 /* ═══════════ 📱 RESPONSIVE ═══════════ */
 
 .dash .sidebar-toggle { display:none; }
+.sidebar-backdrop { display:none; }
 
 /* Tablet (≤1000px): stack the 2-column dashboard */
 @media (max-width:1000px){
@@ -172,9 +173,7 @@
     transition:margin-left .26s ease;
   }
   .dash:not(.sidebar-collapsed) .sidebar { margin-left:0; }
-  .dash:not(.sidebar-collapsed) .main::before {
-    content:''; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:55;
-  }
+  .sidebar-backdrop { display:block; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:55; }
   .dash .sidebar-toggle { display:flex; }
 
   /* prevent horizontal overflow */
