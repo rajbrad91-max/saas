@@ -520,9 +520,9 @@ function DashHome({ goTab }) {
           {/* 🟢 4 tiles */}
           <div className="stats" style={{ gridTemplateColumns: 'repeat(4,1fr)' }}>
             <div className="card"><div className="ic">📋</div><div className="value">{leads.length}</div><div className="label">Total Leads</div></div>
-            <div className="card"><div className="ic">🔔</div><div className="value">{newLeads}</div><div className="label">New Leads</div></div>
+            <div className="card"><div className="ic">✨</div><div className="value">{newLeads}</div><div className="label">New Leads</div></div>
             <div className="card"><div className="ic">✅</div><div className="value">{booked}</div><div className="label">Booked</div></div>
-            <div className="card" onClick={() => goTab('galleries')} style={{ cursor: 'pointer' }}><div className="ic">📸</div><div className="value">{photoSel}</div><div className="label">Photo Selection</div></div>
+            <div className="card" onClick={() => goTab('galleries')} style={{ cursor: 'pointer' }}><div className="ic">🖼️</div><div className="value">{photoSel}</div><div className="label">Photo Selection</div></div>
           </div>
 
           {/* 🟡 Recent Leads */}
