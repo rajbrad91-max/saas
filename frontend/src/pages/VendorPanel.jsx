@@ -66,31 +66,31 @@ export default function VendorPanel({ onLogout }) {
 
   return (
     <div className={`dash ${collapsed ? 'sidebar-collapsed' : ''}`}>
+      <button className="menu-fab" onClick={() => setCollapsed(c => !c)} title="Menu">☰</button>
       {!collapsed && <div className="sidebar-backdrop" onClick={() => setCollapsed(true)} />}
       <aside className="sidebar">
-        <div className="brand">📸 My Studio<small>VENDOR</small></div>
+        <div className="brand">📸 <span className="nav-txt">My Studio<small>VENDOR</small></span></div>
         <div className="nav-group">WORK</div>
-        <div className={`nav-item ${tab==='dashboard'?'active':''}`} onClick={() => go('dashboard')}>📊 Dashboard</div>
-        {has('leads') && <div className={`nav-item ${tab==='leads'?'active':''}`} onClick={() => go('leads')}>📋 Leads</div>}
-        {has('leads') && <div className={`nav-item ${tab==='bookings'?'active':''}`} onClick={() => go('bookings')}>📅 Bookings</div>}
-        {has('calendar') && <div className={`nav-item ${tab==='calendar'?'active':''}`} onClick={() => go('calendar')}>🗓️ Calendar</div>}
-        {has('contracts') && <div className={`nav-item ${tab==='contracts'?'active':''}`} onClick={() => go('contracts')}>📄 Contracts & Invoices</div>}
-        {has('crew') && <div className={`nav-item ${tab==='crew'?'active':''}`} onClick={() => go('crew')}>👷 My Crew</div>}
-        {has('galleries') && <div className={`nav-item ${tab==='galleries'?'active':''}`} onClick={() => go('galleries')}>📸 Galleries</div>}
+        <div className={`nav-item ${tab==='dashboard'?'active':''}`} onClick={() => go('dashboard')}><span className="nav-ic">📊</span><span className="nav-txt">Dashboard</span></div>
+        {has('leads') && <div className={`nav-item ${tab==='leads'?'active':''}`} onClick={() => go('leads')}><span className="nav-ic">📋</span><span className="nav-txt">Leads</span></div>}
+        {has('leads') && <div className={`nav-item ${tab==='bookings'?'active':''}`} onClick={() => go('bookings')}><span className="nav-ic">📅</span><span className="nav-txt">Bookings</span></div>}
+        {has('calendar') && <div className={`nav-item ${tab==='calendar'?'active':''}`} onClick={() => go('calendar')}><span className="nav-ic">🗓️</span><span className="nav-txt">Calendar</span></div>}
+        {has('contracts') && <div className={`nav-item ${tab==='contracts'?'active':''}`} onClick={() => go('contracts')}><span className="nav-ic">📄</span><span className="nav-txt">Contracts & Invoices</span></div>}
+        {has('crew') && <div className={`nav-item ${tab==='crew'?'active':''}`} onClick={() => go('crew')}><span className="nav-ic">👷</span><span className="nav-txt">My Crew</span></div>}
+        {has('galleries') && <div className={`nav-item ${tab==='galleries'?'active':''}`} onClick={() => go('galleries')}><span className="nav-ic">📸</span><span className="nav-txt">Galleries</span></div>}
         <div className="nav-group">SETUP</div>
-        {has('leads') && <div className={`nav-item ${tab==='packages'?'active':''}`} onClick={() => go('packages')}>📦 My Packages</div>}
-        {has('leads') && <div className={`nav-item ${tab==='inqform'?'active':''}`} onClick={() => go('inqform')}>🎨 Inquiry Form</div>}
-        <div className={`nav-item ${tab==='services'?'active':''}`} onClick={() => go('services')}>🧩 My Services</div>
+        {has('leads') && <div className={`nav-item ${tab==='packages'?'active':''}`} onClick={() => go('packages')}><span className="nav-ic">📦</span><span className="nav-txt">My Packages</span></div>}
+        {has('leads') && <div className={`nav-item ${tab==='inqform'?'active':''}`} onClick={() => go('inqform')}><span className="nav-ic">🎨</span><span className="nav-txt">Inquiry Form</span></div>}
+        <div className={`nav-item ${tab==='services'?'active':''}`} onClick={() => go('services')}><span className="nav-ic">🧩</span><span className="nav-txt">My Services</span></div>
         <div className="nav-group">ACCOUNT</div>
-        <div className={`nav-item ${tab==='refer'?'active':''}`} onClick={() => go('refer')}>👥 Refer a Friend</div>
-        <div className={`nav-item ${tab==='settings'?'active':''}`} onClick={() => go('settings')}>⚙️ Settings</div>
-        <div className="logout" onClick={handleLogout}>🚪 Log out</div>
+        <div className={`nav-item ${tab==='refer'?'active':''}`} onClick={() => go('refer')}><span className="nav-ic">👥</span><span className="nav-txt">Refer a Friend</span></div>
+        <div className={`nav-item ${tab==='settings'?'active':''}`} onClick={() => go('settings')}><span className="nav-ic">⚙️</span><span className="nav-txt">Settings</span></div>
+        <div className="logout" onClick={handleLogout}><span className="nav-ic">🚪</span><span className="nav-txt">Log out</span></div>
       </aside>
 
       <main className="main">
         <div className="topbar">
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <button className="hdr-icon sidebar-toggle" onClick={() => setCollapsed(c => !c)} title="Toggle menu">☰</button>
             <div>
               <h1>{tab === 'dashboard' ? 'Dashboard' : tab === 'refer' ? 'Refer a Friend' : tab === 'leads' ? 'Leads' : tab === 'settings' ? 'Settings' : tab === 'packages' ? 'My Packages' : tab === 'bookings' ? 'Bookings' : tab === 'inqform' ? 'Inquiry Form' : tab === 'contracts' ? 'Contracts & Invoices' : tab === 'crew' ? 'My Crew' : tab === 'galleries' ? 'Galleries' : tab === 'calendar' ? 'Calendar' : 'My Services'}</h1>
               <div className="sub">Welcome back, {user?.name} 👋</div>
