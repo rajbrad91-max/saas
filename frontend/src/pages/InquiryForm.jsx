@@ -4,150 +4,184 @@ import './inquiry.css';
 
 export default function InquiryForm({ vendorId }) {
   const [cfg, setCfg] = useState(null);
-  const [f, setF] = useState({
-    name: '', email: '', phone: '',
-    event_type: 'Wedding', event_date: '', timing_from: '', timing_to: '',
-    location: '', hours: '', guests: '',
-    gr_bride: false, gr_bride_venue: '',
-    gr_groom: false, gr_groom_venue: '',
-    notes: '',
-  });
   const [done, setDone] = useState(false);
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
-  const set = (k, v) => setF(s => ({ ...s, [k]: v }));
+
+  // Section 1 — Personal Info (fixed, same for all vendors)
+  const [p, setP] = useState({
+    role: '', name: '', email: '', phone: '', instagram: '', heard: '',
+  });
+  const setPI = (k, v) => setP(s => ({ ...s, [k]: v }));
+
+  // Section 2 — custom answers keyed by field id
+  const [answers, setAnswers] = useState({});
+  const setAns = (id, v) => setAnswers(s => ({ ...s, [id]: v }));
+
+  // Section 3 — Notes (fixed)
+  const [notes, setNotes] = useState('');
 
   useEffect(() => {
-    api.inquirySettings(vendorId).then(d => {
-      setCfg(d.settings);
-      if (d.settings?.event_types?.length) set('event_type', d.settings.event_types[0]);
-    }).catch(() => setCfg({}));
+    api.inquirySettings(vendorId).then(d => setCfg(d.settings)).catch(() => setCfg({}));
   }, [vendorId]);
 
   async function submit() {
     setErr('');
-    if (!f.name || !f.email) { setErr('Name and email are required'); return; }
+    if (!p.name || !p.email) { setErr('Name and email are required'); return; }
+    for (const fld of (cfg.custom_fields || [])) {
+      if (fld.required && !answers[fld.id]) { setErr(`"${fld.label}" is required`); return; }
+    }
     setBusy(true);
     try {
-      await api.createLead({ ...f, vendor_id: Number(vendorId),
-        hours: f.hours ? Number(f.hours) : null,
-        guests: f.guests ? Number(f.guests) : null });
+      await api.createLead({
+        vendor_id: Number(vendorId),
+        name: p.name, email: p.email, phone: p.phone,
+        role: p.role, instagram: p.instagram, heard: p.heard,
+        notes,
+        custom_data: answers,
+      });
       setDone(true);
     } catch (e) { setErr(e.message); }
     finally { setBusy(false); }
   }
 
-  const isWedding = f.event_type === 'Wedding';
-
-  // ⏱️ Auto-calc hours from start + end time
-  function calcHours(from, to) {
-    if (!from || !to) return '';
-    const [fh, fm] = from.split(':').map(Number);
-    const [th, tm] = to.split(':').map(Number);
-    let mins = (th * 60 + tm) - (fh * 60 + fm);
-    if (mins < 0) mins += 24 * 60; // handle overnight
-    return (mins / 60).toFixed(1).replace(/\.0$/, '');
-  }
-  function setTime(k, v) {
-    setF(s => {
-      const next = { ...s, [k]: v };
-      next.hours = calcHours(k === 'timing_from' ? v : s.timing_from, k === 'timing_to' ? v : s.timing_to);
-      return next;
-    });
-  }
-
   if (done) return (
     <div className="iq-wrap">
       <div className="iq-card iq-done">
-        <div className="iq-check">✓</div>
-        <h2>Thank you! 🎉</h2>
+        <div className="iq-check">&#10003;</div>
+        <h2>Thank you! &#127881;</h2>
         <p>Your inquiry has been sent. We'll be in touch soon.</p>
       </div>
     </div>
   );
 
-  if (!cfg) return <div className="iq-wrap"><div className="iq-card">Loading…</div></div>;
+  if (!cfg) return <div className="iq-wrap"><div className="iq-card">Loading&#8230;</div></div>;
+
   const c = cfg;
   const brand = c.brand_color || '#2dd4bf';
+  const font = c.font || 'Inter';
 
   return (
-    <div className="iq-wrap">
-      <div className="iq-card" style={{ '--brand': brand }}>
-        <div className="iq-brand" style={{ color: brand }}>⬡ {c.brand_name || 'Booking Inquiry'}</div>
-        <p className="iq-sub">{c.intro_text || 'Tell us about your event 💫'}</p>
+    <div className="iq-wrap" style={{ fontFamily: `'${font}', sans-serif` }}>
+      <div className={`iq-card iq-theme-${c.theme || 'classic'}`} style={{ '--brand': brand }}>
+        <div className="iq-brand" style={{ color: brand }}>&#11041; {c.brand_name || 'Booking Inquiry'}</div>
+        <p className="iq-sub">{c.intro_text || 'Tell us about your event &#128171;'}</p>
 
-        <label>Your name *</label>
-        <input value={f.name} onChange={e => set('name', e.target.value)} placeholder="Full name" />
+        {/* Section 1: Personal Information */}
+        <div className="iq-section-title">Personal Information</div>
+
+        <label>Your Role *</label>
+        <select value={p.role} onChange={e => setPI('role', e.target.value)}>
+          <option value="">Select&#8230;</option>
+          <option>Bride</option><option>Groom</option><option>Planner</option><option>Other</option>
+        </select>
+
+        <label>Full Name *</label>
+        <input value={p.name} onChange={e => setPI('name', e.target.value)} placeholder="Full name" />
 
         <div className="iq-row">
           <div><label>Email *</label>
-            <input value={f.email} onChange={e => set('email', e.target.value)} placeholder="you@email.com" /></div>
-          {c.show_phone !== false && <div><label>Phone</label>
-            <input value={f.phone} onChange={e => set('phone', e.target.value)} placeholder="(555) 555-5555" /></div>}
+            <input value={p.email} onChange={e => setPI('email', e.target.value)} placeholder="you@email.com" /></div>
+          <div><label>Phone *</label>
+            <input value={p.phone} onChange={e => setPI('phone', e.target.value)} placeholder="(555) 555-5555" /></div>
         </div>
 
-        <label>Event type</label>
-        <select value={f.event_type} onChange={e => set('event_type', e.target.value)}>
-          {(c.event_types || ['Wedding', 'Engagement', 'Portrait', 'Event', 'Other']).map(t => <option key={t}>{t}</option>)}
+        <label>Instagram Handle</label>
+        <input value={p.instagram} onChange={e => setPI('instagram', e.target.value)} placeholder="@yourhandle" />
+
+        <label>How did you hear about us?</label>
+        <select value={p.heard} onChange={e => setPI('heard', e.target.value)}>
+          <option value="">Select&#8230;</option>
+          <option>Friend</option><option>Google Maps</option><option>Instagram</option><option>Facebook</option><option>Other</option>
         </select>
 
-        <div className="iq-row">
-          <div><label>Event date</label>
-            <input type="date" value={f.event_date} onChange={e => set('event_date', e.target.value)} /></div>
-          {c.show_guests !== false && <div><label>Guests</label>
-            <input type="number" value={f.guests} onChange={e => set('guests', e.target.value)} placeholder="120" /></div>}
-        </div>
-
-        {c.show_times !== false && (
-          <div className="iq-row">
-            <div><label>Start time</label>
-              <input type="time" value={f.timing_from} onChange={e => setTime('timing_from', e.target.value)} /></div>
-            <div><label>End time</label>
-              <input type="time" value={f.timing_to} onChange={e => setTime('timing_to', e.target.value)} /></div>
-          </div>
+        {/* Section 2: Inquiry Details (custom) */}
+        {(c.custom_fields || []).length > 0 && (
+          <>
+            <div className="iq-section-title">{c.details_heading || 'Event Details'}</div>
+            {c.custom_fields.map(fld => (
+              <CustomField key={fld.id} fld={fld} value={answers[fld.id]} onChange={v => setAns(fld.id, v)} />
+            ))}
+          </>
         )}
 
-        {f.hours && <div className="iq-hours" style={{ color: brand, borderColor: brand + '44', background: brand + '14' }}>⏱️ Total coverage: <b>{f.hours} hours</b></div>}
+        {/* Section 3: Notes */}
+        <div className="iq-section-title">Notes</div>
+        <label>Anything else?</label>
+        <textarea value={notes} onChange={e => setNotes(e.target.value)} rows="3" placeholder="Tell us more&#8230;" />
 
-        {c.show_location !== false && (<>
-          <label>Location / Venue</label>
-          <input value={f.location} onChange={e => set('location', e.target.value)} placeholder="Venue name or address" />
-        </>)}
-
-        {isWedding && c.show_getting_ready !== false && (
-          <div className="iq-gr">
-            <div className="iq-gr-head">✦ Getting Ready Shoot <span>(optional)</span></div>
-
-            <label className="iq-check-row">
-              <input type="checkbox" checked={f.gr_bride} onChange={e => set('gr_bride', e.target.checked)} />
-              💄 Bride — Getting Ready
-            </label>
-            {f.gr_bride && (
-              <input className="iq-gr-venue" value={f.gr_bride_venue}
-                onChange={e => set('gr_bride_venue', e.target.value)} placeholder="Venue / location (optional)" />
-            )}
-
-            <label className="iq-check-row">
-              <input type="checkbox" checked={f.gr_groom} onChange={e => set('gr_groom', e.target.checked)} />
-              😎 Groom — Getting Ready
-            </label>
-            {f.gr_groom && (
-              <input className="iq-gr-venue" value={f.gr_groom_venue}
-                onChange={e => set('gr_groom_venue', e.target.value)} placeholder="Venue / location (optional)" />
-            )}
-          </div>
-        )}
-
-        {c.show_notes !== false && (<>
-          <label>Anything else?</label>
-          <textarea value={f.notes} onChange={e => set('notes', e.target.value)} rows="3" placeholder="Tell us more about your day…" />
-        </>)}
-
-        {err && <div className="iq-err">⚠️ {err}</div>}
+        {err && <div className="iq-err">&#9888;&#65039; {err}</div>}
         <button className="iq-btn" onClick={submit} disabled={busy} style={{ background: brand }}>
-          {busy ? 'Sending…' : '📨 Send Inquiry'}
+          {busy ? 'Sending&#8230;' : '&#128228; Send Inquiry'}
         </button>
       </div>
+    </div>
+  );
+}
+
+// Renders one custom field by type
+function CustomField({ fld, value, onChange }) {
+  const label = <label>{fld.label}{fld.required && ' *'}</label>;
+
+  if (fld.type === 'dropdown') return (<>
+    {label}
+    <select value={value || ''} onChange={e => onChange(e.target.value)}>
+      <option value="">Select&#8230;</option>
+      {(fld.options || []).map((o, i) => <option key={i}>{o}</option>)}
+    </select>
+  </>);
+
+  if (fld.type === 'text') return (<>{label}
+    <input value={value || ''} onChange={e => onChange(e.target.value)} /></>);
+
+  if (fld.type === 'date') return (<>{label}
+    <input type="date" value={value || ''} onChange={e => onChange(e.target.value)} /></>);
+
+  if (fld.type === 'time') return (<>{label}
+    <input type="time" value={value || ''} onChange={e => onChange(e.target.value)} /></>);
+
+  if (fld.type === 'location') return (<>{label}
+    <LocationField value={value || ''} onChange={onChange} /></>);
+
+  if (fld.type === 'checkbox') return (
+    <label className="iq-check-row">
+      <input type="checkbox" checked={!!value} onChange={e => onChange(e.target.checked)} />
+      {fld.label}
+    </label>
+  );
+
+  return null;
+}
+
+// Location with free auto-suggest (Photon / OpenStreetMap - no key)
+function LocationField({ value, onChange }) {
+  const [sugs, setSugs] = useState([]);
+  const [open, setOpen] = useState(false);
+
+  async function lookup(q) {
+    onChange(q);
+    if (q.length < 3) { setSugs([]); return; }
+    try {
+      const r = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=5`);
+      const d = await r.json();
+      setSugs((d.features || []).map(f => {
+        const pr = f.properties;
+        return [pr.name, pr.city, pr.state, pr.country].filter(Boolean).join(', ');
+      }));
+      setOpen(true);
+    } catch { setSugs([]); }
+  }
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <input value={value} onChange={e => lookup(e.target.value)} placeholder="Start typing an address&#8230;" autoComplete="off" />
+      {open && sugs.length > 0 && (
+        <div className="iq-sugs">
+          {sugs.map((s, i) => (
+            <div key={i} className="iq-sug" onClick={() => { onChange(s); setOpen(false); }}>{s}</div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

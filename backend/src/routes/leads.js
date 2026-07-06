@@ -91,7 +91,7 @@ router.get('/:id', requireAuth, async (req, res) => {
 
 const FIELDS = ['name','email','phone','event_type','event_date','timing_from','timing_to',
   'location','hours','guests','gr_bride','gr_bride_venue','gr_groom','gr_groom_venue',
-  'notes','internal_notes','status'];
+  'notes','internal_notes','status','role','instagram','heard','custom_data'];
 
 // POST /api/leads → create (public inquiry OR admin). vendor_id required.
 router.post('/', async (req, res) => {
@@ -99,7 +99,8 @@ router.post('/', async (req, res) => {
   const vendor_id = b.vendor_id;
   if (!vendor_id) return res.status(400).json({ error: 'vendor_id required' });
   const cols = ['vendor_id', 'client_token', ...FIELDS.filter(f => b[f] !== undefined)];
-  const vals = [vendor_id, (await import('crypto')).randomBytes(20).toString('hex'), ...FIELDS.filter(f => b[f] !== undefined).map(f => b[f])];
+  const vals = [vendor_id, (await import('crypto')).randomBytes(20).toString('hex'),
+    ...FIELDS.filter(f => b[f] !== undefined).map(f => f === 'custom_data' ? JSON.stringify(b[f]) : b[f])];
   const ph = cols.map((_, i) => `$${i + 1}`).join(',');
   try {
     const { rows } = await query(
