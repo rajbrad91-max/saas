@@ -2,23 +2,35 @@ import { useState, useEffect } from 'react';
 import { api } from '../lib/api';
 import './inquiry.css';
 
+// professions for the background watermark
+export const PROFESSIONS = {
+  none: { label: 'None', icon: '' },
+  photographer: { label: 'Photographer', icon: '📷' },
+  videographer: { label: 'Videographer', icon: '🎥' },
+  photo_video: { label: 'Photo & Video', icon: '🎬' },
+  realestate: { label: 'Real Estate Creator', icon: '🏠' },
+  dj: { label: 'DJ', icon: '🎧' },
+  makeup: { label: 'Make-Up Artist', icon: '💄' },
+  cake: { label: 'Cake Maker', icon: '🎂' },
+  florist: { label: 'Florist / Floor Wrapper', icon: '💐' },
+  bartender: { label: 'Bartender', icon: '🍸' },
+  caterer: { label: 'Caterer', icon: '🍽️' },
+  planner: { label: 'Wedding Planner', icon: '📋' },
+  musician: { label: 'Musician / Singer', icon: '🎶' },
+};
+
 export default function InquiryForm({ vendorId }) {
   const [cfg, setCfg] = useState(null);
   const [done, setDone] = useState(false);
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
 
-  // Section 1 — Personal Info (fixed, same for all vendors)
-  const [p, setP] = useState({
-    role: '', name: '', email: '', phone: '', instagram: '', heard: '',
-  });
+  const [p, setP] = useState({ role: '', name: '', email: '', phone: '', instagram: '', heard: '' });
   const setPI = (k, v) => setP(s => ({ ...s, [k]: v }));
 
-  // Section 2 — custom answers keyed by field id
   const [answers, setAnswers] = useState({});
   const setAns = (id, v) => setAnswers(s => ({ ...s, [id]: v }));
 
-  // Section 3 — Notes (fixed)
   const [notes, setNotes] = useState('');
 
   useEffect(() => {
@@ -37,8 +49,7 @@ export default function InquiryForm({ vendorId }) {
         vendor_id: Number(vendorId),
         name: p.name, email: p.email, phone: p.phone,
         role: p.role, instagram: p.instagram, heard: p.heard,
-        notes,
-        custom_data: answers,
+        notes, custom_data: answers,
       });
       setDone(true);
     } catch (e) { setErr(e.message); }
@@ -48,85 +59,108 @@ export default function InquiryForm({ vendorId }) {
   if (done) return (
     <div className="iq-wrap">
       <div className="iq-card iq-done">
-        <div className="iq-check">&#10003;</div>
-        <h2>Thank you! &#127881;</h2>
+        <div className="iq-check">✓</div>
+        <h2>Thank you! 🎉</h2>
         <p>Your inquiry has been sent. We'll be in touch soon.</p>
       </div>
     </div>
   );
 
-  if (!cfg) return <div className="iq-wrap"><div className="iq-card">Loading&#8230;</div></div>;
+  if (!cfg) return <div className="iq-wrap"><div className="iq-card">Loading…</div></div>;
 
   const c = cfg;
   const brand = c.brand_color || '#2dd4bf';
   const font = c.font || 'Inter';
+  const prof = PROFESSIONS[c.background] || PROFESSIONS.none;
 
   return (
-    <div className="iq-wrap" style={{ fontFamily: `'${font}', sans-serif` }}>
-      <div className={`iq-card iq-theme-${c.theme || 'classic'}`} style={{ '--brand': brand }}>
-        <div className="iq-brand" style={{ color: brand }}>&#11041; {c.brand_name || 'Booking Inquiry'}</div>
-        <p className="iq-sub">{c.intro_text || 'Tell us about your event &#128171;'}</p>
-
-        {/* Section 1: Personal Information */}
-        <div className="iq-section-title">Personal Information</div>
-
-        <label>Your Role *</label>
-        <select value={p.role} onChange={e => setPI('role', e.target.value)}>
-          <option value="">Select&#8230;</option>
-          <option>Bride</option><option>Groom</option><option>Planner</option><option>Other</option>
-        </select>
-
-        <label>Full Name *</label>
-        <input value={p.name} onChange={e => setPI('name', e.target.value)} placeholder="Full name" />
-
-        <div className="iq-row">
-          <div><label>Email *</label>
-            <input value={p.email} onChange={e => setPI('email', e.target.value)} placeholder="you@email.com" /></div>
-          <div><label>Phone *</label>
-            <input value={p.phone} onChange={e => setPI('phone', e.target.value)} placeholder="(555) 555-5555" /></div>
+    <div className="iq-wrap" style={{ fontFamily: `'${font}', sans-serif`, '--brand': brand }}>
+      <div className={`iq-card iq-theme-${c.theme || 'classic'}`}>
+        {/* soft brand shade header */}
+        <div className="iq-hd">
+          <div className="iq-brand">⬡ {c.brand_name || 'Booking Inquiry'}</div>
+          <p className="iq-sub">{c.intro_text || 'Tell us about your event 💫'}</p>
         </div>
 
-        <label>Instagram Handle</label>
-        <input value={p.instagram} onChange={e => setPI('instagram', e.target.value)} placeholder="@yourhandle" />
+        {/* watermark layer (pure CSS emoji, ~0 storage) */}
+        {prof.icon && <div className="iq-watermark" aria-hidden>{Array.from({ length: 40 }).map((_, i) => <span key={i}>{prof.icon}</span>)}</div>}
 
-        <label>How did you hear about us?</label>
-        <select value={p.heard} onChange={e => setPI('heard', e.target.value)}>
-          <option value="">Select&#8230;</option>
-          <option>Friend</option><option>Google Maps</option><option>Instagram</option><option>Facebook</option><option>Other</option>
-        </select>
+        <div className="iq-body">
+          {/* ── Section 1: Contact Details ── */}
+          <div className="iq-section">
+            <div className="iq-section-title">📇 Contact Details</div>
+            <div className="iq-grid">
+              <div>
+                <label>Your Role *</label>
+                <select value={p.role} onChange={e => setPI('role', e.target.value)}>
+                  <option value="">Select…</option>
+                  <option>Bride</option><option>Groom</option><option>Planner</option><option>Other</option>
+                </select>
+              </div>
+              <div>
+                <label>Full Name *</label>
+                <input value={p.name} onChange={e => setPI('name', e.target.value)} placeholder="Full name" />
+              </div>
+              <div>
+                <label>Email *</label>
+                <input value={p.email} onChange={e => setPI('email', e.target.value)} placeholder="you@email.com" />
+              </div>
+              <div>
+                <label>Phone *</label>
+                <input value={p.phone} onChange={e => setPI('phone', e.target.value)} placeholder="(555) 555-5555" />
+              </div>
+              <div>
+                <label>Instagram Handle</label>
+                <input value={p.instagram} onChange={e => setPI('instagram', e.target.value)} placeholder="@yourhandle" />
+              </div>
+              <div>
+                <label>How did you hear about us?</label>
+                <select value={p.heard} onChange={e => setPI('heard', e.target.value)}>
+                  <option value="">Select…</option>
+                  <option>Friend</option><option>Google Maps</option><option>Instagram</option><option>Facebook</option><option>Other</option>
+                </select>
+              </div>
+            </div>
+          </div>
 
-        {/* Section 2: Inquiry Details (custom) */}
-        {(c.custom_fields || []).length > 0 && (
-          <>
-            <div className="iq-section-title">{c.details_heading || 'Event Details'}</div>
-            {c.custom_fields.map(fld => (
-              <CustomField key={fld.id} fld={fld} value={answers[fld.id]} onChange={v => setAns(fld.id, v)} />
-            ))}
-          </>
-        )}
+          {/* ── Section 2: Inquiry Details ── */}
+          {(c.custom_fields || []).length > 0 && (
+            <div className="iq-section">
+              <div className="iq-section-title">✨ {c.details_heading || 'Inquiry Details'}</div>
+              <div className="iq-grid">
+                {c.custom_fields.map(fld => (
+                  <div key={fld.id} className={fld.type === 'checkbox' ? 'iq-full' : ''}>
+                    <CustomField fld={fld} value={answers[fld.id]} onChange={v => setAns(fld.id, v)} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
-        {/* Section 3: Notes */}
-        <div className="iq-section-title">Notes</div>
-        <label>Anything else?</label>
-        <textarea value={notes} onChange={e => setNotes(e.target.value)} rows="3" placeholder="Tell us more&#8230;" />
+          {/* ── Section 3: Notes ── */}
+          <div className="iq-section">
+            <div className="iq-section-title">📝 Notes</div>
+            <label>Anything else?</label>
+            <textarea value={notes} onChange={e => setNotes(e.target.value)} rows="3" placeholder="Tell us more…" />
+          </div>
 
-        {err && <div className="iq-err">&#9888;&#65039; {err}</div>}
-        <button className="iq-btn" onClick={submit} disabled={busy} style={{ background: brand }}>
-          {busy ? 'Sending&#8230;' : '&#128228; Send Inquiry'}
-        </button>
+          {err && <div className="iq-err">⚠️ {err}</div>}
+          <button className="iq-btn" onClick={submit} disabled={busy}>
+            {busy ? 'Sending…' : '📨 Send Inquiry'}
+          </button>
+        </div>
       </div>
     </div>
   );
 }
 
-// Renders one custom field by type
 function CustomField({ fld, value, onChange }) {
   const label = <label>{fld.label}{fld.required && ' *'}</label>;
 
   if (fld.type === 'dropdown') return (<>
     {label}
     <select value={value || ''} onChange={e => onChange(e.target.value)}>
-      <option value="">Select&#8230;</option>
+      <option value="">Select…</option>
       {(fld.options || []).map((o, i) => <option key={i}>{o}</option>)}
     </select>
   </>);
@@ -153,7 +187,6 @@ function CustomField({ fld, value, onChange }) {
   return null;
 }
 
-// Location with free auto-suggest (Photon / OpenStreetMap - no key)
 function LocationField({ value, onChange }) {
   const [sugs, setSugs] = useState([]);
   const [open, setOpen] = useState(false);
@@ -174,7 +207,7 @@ function LocationField({ value, onChange }) {
 
   return (
     <div style={{ position: 'relative' }}>
-      <input value={value} onChange={e => lookup(e.target.value)} placeholder="Start typing an address&#8230;" autoComplete="off" />
+      <input value={value} onChange={e => lookup(e.target.value)} placeholder="Start typing an address…" autoComplete="off" />
       {open && sugs.length > 0 && (
         <div className="iq-sugs">
           {sugs.map((s, i) => (

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { api, getUser, clearSession } from '../lib/api';
+import { PROFESSIONS } from './InquiryForm';
 import './vendor.css';
 
 // 🗝️ tab → required feature (one map controls everything)
@@ -1501,9 +1502,19 @@ function InqFormSettings({ user }) {
         <label style={{ fontSize: 12, color: 'var(--muted)' }}>Brand name</label>
         <input style={box} value={s.brand_name || ''} onChange={e => setS({ ...s, brand_name: e.target.value })} />
 
-        <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginTop: 12 }}>Brand color</label>
-        <input type="color" value={s.brand_color} onChange={e => setS({ ...s, brand_color: e.target.value })}
-          style={{ width: 60, height: 36, border: 'none', background: 'transparent', cursor: 'pointer' }} />
+        <div style={{ display: 'flex', gap: 16, alignItems: 'flex-end', marginTop: 12 }}>
+          <div>
+            <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block' }}>Brand color</label>
+            <input type="color" value={s.brand_color} onChange={e => setS({ ...s, brand_color: e.target.value })}
+              style={{ width: 60, height: 36, border: 'none', background: 'transparent', cursor: 'pointer' }} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Background watermark</label>
+            <select style={box} value={s.background || 'none'} onChange={e => setS({ ...s, background: e.target.value })}>
+              {Object.entries(PROFESSIONS).map(([k, v]) => <option key={k} value={k}>{v.icon} {v.label}</option>)}
+            </select>
+          </div>
+        </div>
 
         <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginTop: 12 }}>Intro text</label>
         <input style={box} value={s.intro_text || ''} onChange={e => setS({ ...s, intro_text: e.target.value })} />
