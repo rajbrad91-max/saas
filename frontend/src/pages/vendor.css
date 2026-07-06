@@ -162,6 +162,8 @@
 
 /* 📋 Lead detail 2-column layout */
 .lead-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
+.lead-left, .lead-right { min-width: 0; }
+.lead-right > * { margin-bottom: 16px; }
 @media (max-width: 900px){ .lead-grid { grid-template-columns: 1fr; } }
 
 /* ═══════════ 🍔 MENU BUTTON + COLLAPSE ═══════════ */
