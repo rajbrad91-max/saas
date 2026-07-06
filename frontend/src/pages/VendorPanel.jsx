@@ -1407,6 +1407,75 @@ function BookingsView() {
   );
 }
 
+// 🏗️ Section 2 custom field builder
+const FIELD_TYPES = [
+  { t: 'dropdown', label: '📋 Dropdown' },
+  { t: 'text', label: '✏️ Text' },
+  { t: 'date', label: '📅 Date' },
+  { t: 'time', label: '🕐 Time' },
+  { t: 'location', label: '📍 Location' },
+  { t: 'checkbox', label: '☑️ Checkbox' },
+];
+
+function FieldBuilder({ fields, setFields }) {
+  const box = { background: 'var(--panel-2)', border: '1px solid var(--line)', borderRadius: 8, color: 'var(--text)', padding: 8, width: '100%', fontSize: 13 };
+  const uid = () => 'f' + Math.random().toString(36).slice(2, 8);
+
+  const add = (t) => setFields([...fields, { id: uid(), type: t, label: '', required: false, options: t === 'dropdown' ? ['Option 1'] : [] }]);
+  const upd = (i, patch) => setFields(fields.map((f, idx) => idx === i ? { ...f, ...patch } : f));
+  const del = (i) => setFields(fields.filter((_, idx) => idx !== i));
+  const move = (i, dir) => {
+    const j = i + dir; if (j < 0 || j >= fields.length) return;
+    const copy = [...fields]; [copy[i], copy[j]] = [copy[j], copy[i]]; setFields(copy);
+  };
+
+  return (
+    <div>
+      {/* add field buttons */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
+        {FIELD_TYPES.map(ft => (
+          <button key={ft.t} className="refresh" onClick={() => add(ft.t)} style={{ padding: '6px 11px', fontSize: 12 }}>+ {ft.label}</button>
+        ))}
+      </div>
+
+      {fields.length === 0 && <p className="sub">No custom fields yet. Add fields above ☝️</p>}
+
+      {/* field list */}
+      {fields.map((f, i) => (
+        <div key={f.id} style={{ background: 'var(--panel-2)', border: '1px solid var(--line)', borderRadius: 10, padding: 12, marginBottom: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+            <span style={{ fontSize: 12, color: 'var(--muted)' }}>{FIELD_TYPES.find(x => x.t === f.type)?.label}</span>
+            <div style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
+              <button className="refresh" onClick={() => move(i, -1)} style={{ padding: '3px 8px', fontSize: 11 }}>↑</button>
+              <button className="refresh" onClick={() => move(i, 1)} style={{ padding: '3px 8px', fontSize: 11 }}>↓</button>
+              <button className="refresh" onClick={() => del(i)} style={{ padding: '3px 8px', fontSize: 11, color: '#fb7185' }}>🗑️</button>
+            </div>
+          </div>
+
+          <input style={box} placeholder="Field label (e.g. Event Type)" value={f.label} onChange={e => upd(i, { label: e.target.value })} />
+
+          {/* dropdown options */}
+          {f.type === 'dropdown' && (
+            <div style={{ marginTop: 8 }}>
+              {f.options.map((opt, oi) => (
+                <div key={oi} style={{ display: 'flex', gap: 6, marginBottom: 5 }}>
+                  <input style={{ ...box, fontSize: 12 }} value={opt} onChange={e => upd(i, { options: f.options.map((o, x) => x === oi ? e.target.value : o) })} />
+                  <button className="refresh" onClick={() => upd(i, { options: f.options.filter((_, x) => x !== oi) })} style={{ padding: '4px 9px', fontSize: 11 }}>✕</button>
+                </div>
+              ))}
+              <button className="refresh" onClick={() => upd(i, { options: [...f.options, 'Option ' + (f.options.length + 1)] })} style={{ padding: '4px 10px', fontSize: 11 }}>+ option</button>
+            </div>
+          )}
+
+          <label style={{ fontSize: 12, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 6, marginTop: 8 }}>
+            <input type="checkbox" checked={f.required} onChange={e => upd(i, { required: e.target.checked })} /> Required
+          </label>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function InqFormSettings({ user }) {
   const [s, setS] = useState(null);
   const [msg, setMsg] = useState('');
@@ -1459,6 +1528,39 @@ function InqFormSettings({ user }) {
         <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginTop: 14 }}>Event types (comma separated)</label>
         <input style={box} value={(s.event_types || []).join(', ')}
           onChange={e => setS({ ...s, event_types: e.target.value.split(',').map(x => x.trim()).filter(Boolean) })} />
+
+        {/* 🎨 Theme + font */}
+        <div style={{ display: 'flex', gap: 12, marginTop: 14 }}>
+          <div style={{ flex: 1 }}>
+            <label style={{ fontSize: 12, color: 'var(--muted)' }}>Theme</label>
+            <select style={box} value={s.theme || 'classic'} onChange={e => setS({ ...s, theme: e.target.value })}>
+              <option value="classic">Classic</option>
+              <option value="modern">Modern</option>
+              <option value="elegant">Elegant</option>
+              <option value="bold">Bold</option>
+              <option value="minimal">Minimal</option>
+            </select>
+          </div>
+          <div style={{ flex: 1 }}>
+            <label style={{ fontSize: 12, color: 'var(--muted)' }}>Font</label>
+            <select style={box} value={s.font || 'Inter'} onChange={e => setS({ ...s, font: e.target.value })}>
+              <option value="Inter">Inter</option>
+              <option value="Poppins">Poppins</option>
+              <option value="Playfair Display">Playfair</option>
+              <option value="Montserrat">Montserrat</option>
+              <option value="Lora">Lora</option>
+            </select>
+          </div>
+        </div>
+
+        {/* 🏗️ Section 2 builder */}
+        <div style={{ borderTop: '1px solid var(--line)', margin: '20px 0 14px', paddingTop: 16 }}>
+          <label style={{ fontSize: 12, color: 'var(--muted)' }}>Section 2 heading</label>
+          <input style={box} value={s.details_heading || ''} placeholder="Event Details" onChange={e => setS({ ...s, details_heading: e.target.value })} />
+          <h3 style={{ margin: '16px 0 4px' }}>🏗️ Inquiry Details fields</h3>
+          <p className="sub" style={{ marginBottom: 12 }}>Build your custom questions ⬇️</p>
+          <FieldBuilder fields={s.custom_fields || []} setFields={(f) => setS({ ...s, custom_fields: f })} />
+        </div>
 
         <button className="refresh" onClick={save} style={{ marginTop: 16, width: '100%', background: '#2dd4bf', color: '#06231f' }}>💾 Save form settings</button>
       </div>
