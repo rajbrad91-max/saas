@@ -796,13 +796,16 @@ function LeadDetail({ lead, onBack }) {
 
   // ---- VIEW MODE ----
   return (
-    <div className="table-wrap" style={{ padding: 24, maxWidth: 640 }}>
+    <div className="table-wrap" style={{ padding: 24 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
         <button className="refresh" onClick={onBack}>← Back to leads</button>
         <button className="refresh" onClick={() => { setF({ ...lead }); setEdit(true); }} style={{ background: '#2dd4bf', color: '#06231f' }}>✏️ Edit</button>
       </div>
       <h2 style={{ marginTop: 0 }}>{lead.name} · {lead.event_type}</h2>
       {msg && <div style={{ padding: 10, borderRadius: 8, margin: '0 0 12px', fontSize: 13, background: '#4ade8018', color: '#4ade80' }}>{msg}</div>}
+
+      <div className="lead-grid">
+      <div className="lead-left">
 
       <div style={{ padding: '10px 0', borderBottom: '1px solid var(--line)', display: 'flex', alignItems: 'center', gap: 12 }}>
         <div style={{ width: 180, color: 'var(--muted)', fontWeight: 600, fontSize: 14 }}>📦 Package</div>
@@ -823,12 +826,16 @@ function LeadDetail({ lead, onBack }) {
       {row('💄 Bride Getting Ready', `${yn(lead.gr_bride)}${lead.gr_bride_venue ? ' · ' + lead.gr_bride_venue : ''}`)}
       {row('😎 Groom Getting Ready', `${yn(lead.gr_groom)}${lead.gr_groom_venue ? ' · ' + lead.gr_groom_venue : ''}`)}
       {row('📝 Notes', lead.notes)}
+      </div>
 
+      <div className="lead-right">
       <MoneySection lead={lead} />
       <EmailBox lead={lead} />
       <ContractsBox lead={lead} />
       <InvoiceBox lead={lead} />
       <BookingExtras lead={lead} />
+      </div>
+      </div>
     </div>
   );
 }
