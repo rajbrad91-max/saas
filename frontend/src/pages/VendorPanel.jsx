@@ -629,34 +629,32 @@ function LeadsView() {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button className="refresh" onClick={() => setView('active')}
-            style={{ background: view === 'active' ? '#2dd4bf' : 'var(--panel-2)', color: view === 'active' ? '#06231f' : 'var(--text)' }}>📋 Active</button>
-          <button className="refresh" onClick={() => setView('history')}
-            style={{ background: view === 'history' ? '#2dd4bf' : 'var(--panel-2)', color: view === 'history' ? '#06231f' : 'var(--text)' }}>📜 History</button>
+      <div className="leads-toolbar">
+        <div className="leads-tabs">
+          <button className={`refresh ${view === 'active' ? 'is-on' : ''}`} onClick={() => setView('active')}>📋 Active</button>
+          <button className={`refresh ${view === 'history' ? 'is-on' : ''}`} onClick={() => setView('history')}>📜 History</button>
         </div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          {msg && <span style={{ fontSize: 13, color: msg[0] === '⚠' ? '#fb7185' : '#4ade80' }}>{msg}</span>}
+        <div className="leads-actions">
+          {msg && <span className={`leads-msg ${msg[0] === '⚠' ? 'is-err' : 'is-ok'}`}>{msg}</span>}
           {view === 'active' && checked.length > 0 && (
-            <button className="refresh" onClick={archiveChecked} style={{ background: '#fb718522', color: '#fb7185' }}>🗂️ Archive ({checked.length})</button>
+            <button className="refresh btn-archive" onClick={archiveChecked}>🗂️ Archive ({checked.length})</button>
           )}
         </div>
       </div>
 
       <div className="table-wrap">
         <table>
-          <thead><tr>{view === 'active' && <th style={{ width: 34 }}></th>}<th>Name</th><th>Event</th><th>Date</th><th>Status</th>{view === 'history' && <th></th>}</tr></thead>
+          <thead><tr>{view === 'active' && <th className="col-check"></th>}<th>Name</th><th>Event</th><th>Date</th><th>Status</th>{view === 'history' && <th></th>}</tr></thead>
           <tbody>
             {loading ? (
               <tr><td colSpan="6" className="empty">Loading…</td></tr>
             ) : leads.length === 0 ? (
               <tr><td colSpan="6" className="empty">{view === 'active' ? 'No leads yet. Share your inquiry link! 📨' : 'No archived leads 📜'}</td></tr>
             ) : leads.map(l => (
-              <tr key={l.id} onClick={() => view === 'active' && setSel(l)} style={{ cursor: view === 'active' ? 'pointer' : 'default' }}>
+              <tr key={l.id} onClick={() => view === 'active' && setSel(l)} className={view === 'active' ? 'row-clickable' : ''}>
                 {view === 'active' && (
-                  <td onClick={e => toggleCheck(l.id, e)} style={{ cursor: 'pointer' }}>
-                    <input type="checkbox" readOnly checked={checked.includes(l.id)} style={{ accentColor: '#2dd4bf', pointerEvents: 'none' }} />
+                  <td className="cell-check" onClick={e => toggleCheck(l.id, e)}>
+                    <input type="checkbox" readOnly checked={checked.includes(l.id)} className="lead-check" />
                   </td>
                 )}
                 <td className="biz">{l.name}</td>
@@ -664,7 +662,7 @@ function LeadsView() {
                 <td>{l.event_date ? String(l.event_date).slice(0, 10) : '—'}</td>
                 <td><span className="badge trial">{l.status}</span></td>
                 {view === 'history' && (
-                  <td><span style={{ cursor: 'pointer', color: '#2dd4bf', fontSize: 12 }} onClick={e => restore(l.id, e)}>↩️ Restore</span></td>
+                  <td><span className="lead-restore" onClick={e => restore(l.id, e)}>↩️ Restore</span></td>
                 )}
               </tr>
             ))}

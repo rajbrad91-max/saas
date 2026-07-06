@@ -166,6 +166,20 @@
 .lead-right > * { margin-bottom: 16px; }
 @media (max-width: 900px){ .lead-grid { grid-template-columns: 1fr; } }
 
+/* 📋 Leads list */
+.leads-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.leads-tabs, .leads-actions { display: flex; gap: 8px; align-items: center; }
+.leads-tabs .refresh.is-on { background: #2dd4bf; color: #06231f; }
+.leads-msg { font-size: 13px; }
+.leads-msg.is-ok { color: #4ade80; }
+.leads-msg.is-err { color: #fb7185; }
+.btn-archive { background: #fb718522; color: #fb7185; }
+.col-check { width: 34px; }
+.cell-check { cursor: pointer; }
+.row-clickable { cursor: pointer; }
+.lead-check { accent-color: #2dd4bf; pointer-events: none; }
+.lead-restore { cursor: pointer; color: #2dd4bf; font-size: 12px; }
+
 /* ═══════════ 🍔 MENU BUTTON + COLLAPSE ═══════════ */
 
 /* menu button lives in the topbar (in-flow, no overlap) */
