@@ -414,7 +414,7 @@ function CrewView() {
   );
 }
 
-function CalendarView() {
+function CalendarView({ onOpen }) {
   const [bookings, setBookings] = useState([]);
   const [cur, setCur] = useState(() => { const d = new Date(); return { y: d.getFullYear(), m: d.getMonth() }; });
   const [selDay, setSelDay] = useState(null);
@@ -483,10 +483,11 @@ function CalendarView() {
       </div>
 
       {selDay && (byDay[selDay] || []).map(b => (
-        <div key={b.id} className="table-wrap" style={{ padding: 14, marginTop: 10, fontSize: 13 }}>
+        <div key={b.id} className="table-wrap cal-evt" onClick={() => onOpen && onOpen(b)}>
           🎉 <b>{b.name}</b> · {b.event_type} · {b.timing_from ? `${b.timing_from}–${b.timing_to || '?'}` : 'time TBD'}
           {b.location ? ` · 📍 ${b.location}` : ''}
           {b.money ? ` · ⏳ $${b.money.balance} due` : ''}
+          {onOpen && <span className="cal-evt-open">👁️ Open</span>}
         </div>
       ))}
     </div>
@@ -1346,10 +1347,13 @@ function BookingsView() {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [mode, setMode] = useState('list'); // list | calendar
+  const [sel, setSel] = useState(null);
   useEffect(() => {
     api.bookings().then(d => setBookings(d.bookings || [])).catch(() => {}).finally(() => setLoading(false));
   }, []);
   if (loading) return <div className="loading">Loading…</div>;
+
+  if (sel) return <LeadDetail lead={sel} onBack={() => setSel(null)} />;
 
   const now = new Date();
   const inMonth = bookings.filter(b => { const d = b.event_date && new Date(b.event_date); return d && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear(); }).length;
@@ -1370,7 +1374,7 @@ function BookingsView() {
         </div>
       </div>
 
-      {mode === 'calendar' ? <CalendarView /> : (
+      {mode === 'calendar' ? <CalendarView onOpen={setSel} /> : (
         <div className="table-wrap">
           <table>
             <thead><tr><th>Client</th><th>Event</th><th>Date</th><th>Total</th><th>Paid</th><th>Balance</th></tr></thead>
@@ -1378,7 +1382,7 @@ function BookingsView() {
               {bookings.length === 0 ? (
                 <tr><td colSpan="6" className="empty">No bookings yet. Set a lead's status to ✅ booked!</td></tr>
               ) : bookings.map(b => (
-                <tr key={b.id}>
+                <tr key={b.id} className="row-clickable" onClick={() => setSel(b)}>
                   <td className="biz">{b.name}</td>
                   <td>{b.event_type}</td>
                   <td>{b.event_date ? String(b.event_date).slice(0, 10) : '—'}</td>

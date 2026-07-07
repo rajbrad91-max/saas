@@ -230,6 +230,11 @@
 .bk-paid { color: #4ade80; }
 .bk-due { color: #fbbf24; }
 
+/* 🗓️ clickable calendar event card */
+.cal-evt { padding: 14px; margin-top: 10px; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: border-color .15s; }
+.cal-evt:hover { border-color: #2dd4bf; }
+.cal-evt-open { margin-left: auto; color: #2dd4bf; font-size: 12px; white-space: nowrap; }
+
 /* 📄 Contracts & Invoices tab */
 .ct-wrap { max-width: 820px; }
 .ct-tabs { display: flex; gap: 8px; margin-bottom: 14px; }
