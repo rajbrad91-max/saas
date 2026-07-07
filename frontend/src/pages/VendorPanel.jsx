@@ -1098,12 +1098,11 @@ function MoneySection({ lead }) {
 function ContractsTab() {
   const [sub, setSub] = useState('list'); // list | setup | invoices
   const btn = (k, label) => (
-    <button className="refresh" onClick={() => setSub(k)}
-      style={{ background: sub === k ? '#2dd4bf' : 'var(--panel-2)', color: sub === k ? '#06231f' : 'var(--text)' }}>{label}</button>
+    <button className={`refresh ct-tab ${sub === k ? 'is-on' : ''}`} onClick={() => setSub(k)}>{label}</button>
   );
   return (
-    <div style={{ maxWidth: 820 }}>
-      <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+    <div className="ct-wrap">
+      <div className="ct-tabs">
         {btn('list', '📄 Contracts')}
         {btn('setup', '🛠️ Contract setup')}
         {btn('invoices', '🧾 Invoices')}
@@ -1135,9 +1134,9 @@ function AllInvoices() {
               <td className="biz">{i.invoice_number}</td>
               <td>{i.client_name}</td>
               <td>${Number(i.total).toFixed(2)}</td>
-              <td style={{ color: '#4ade80' }}>${Number(i.paid).toFixed(2)}</td>
-              <td style={{ color: Number(i.balance) > 0 ? '#fbbf24' : '#4ade80' }}>${Number(i.balance).toFixed(2)}</td>
-              <td><span style={{ cursor: 'pointer', color: '#2dd4bf', fontSize: 12 }} onClick={() => copyLink(i.token)}>🔗 Copy link</span></td>
+              <td className="ct-paid">${Number(i.paid).toFixed(2)}</td>
+              <td className={Number(i.balance) > 0 ? 'ct-due' : 'ct-paid'}>${Number(i.balance).toFixed(2)}</td>
+              <td><span className="ct-link" onClick={() => copyLink(i.token)}>🔗 Copy link</span></td>
             </tr>
           ))}
         </tbody>
@@ -1171,8 +1170,8 @@ function AllContracts() {
               <td>{S[c.status]} {c.status}</td>
               <td>{c.signed_at ? String(c.signed_at).slice(0, 10) : '—'}</td>
               <td>{c.status !== 'signed'
-                ? <span style={{ cursor: 'pointer', color: '#2dd4bf', fontSize: 12 }} onClick={() => copyLink(c.token)}>🔗 Copy link</span>
-                : <a href={`/certificate/${c.token}`} target="_blank" rel="noreferrer" style={{ color: '#4ade80', fontSize: 12, textDecoration: 'none' }}>📜 Certificate</a>}</td>
+                ? <span className="ct-link" onClick={() => copyLink(c.token)}>🔗 Copy link</span>
+                : <a href={`/certificate/${c.token}`} target="_blank" rel="noreferrer" className="ct-cert">📜 Certificate</a>}</td>
             </tr>
           ))}
         </tbody>
@@ -1187,7 +1186,6 @@ function ContractSetup() {
   const [tpls, setTpls] = useState([]);
   const [sel, setSel] = useState(null);
   const [msg, setMsg] = useState('');
-  const box = { background: 'var(--panel-2)', border: '1px solid var(--line)', borderRadius: 8, color: 'var(--text)', padding: 9, width: '100%', fontFamily: 'inherit' };
 
   useEffect(() => { load(); }, []);
   async function load() {
@@ -1214,56 +1212,54 @@ function ContractSetup() {
   }
 
   if (sel) return (
-    <div className="table-wrap" style={{ padding: 20 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
+    <div className="table-wrap cs-edit">
+      <div className="cs-edit-top">
         <button className="refresh" onClick={() => setSel(null)}>← All templates</button>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          {msg && <span style={{ fontSize: 13, color: msg[0] === '✅' ? '#4ade80' : '#fb7185' }}>{msg}</span>}
+        <div className="cs-edit-actions">
+          {msg && <span className={`cs-msg ${msg[0] === '✅' ? 'is-ok' : 'is-err'}`}>{msg}</span>}
           <button className="refresh" onClick={() => del(sel.id)}>🗑️</button>
         </div>
       </div>
 
-      <label style={{ fontSize: 12, color: 'var(--muted)' }}>Template name</label>
-      <input style={box} value={sel.name || ''} onChange={e => setSel({ ...sel, name: e.target.value })} />
+      <label className="cs-label">Template name</label>
+      <input className="cs-input" value={sel.name || ''} onChange={e => setSel({ ...sel, name: e.target.value })} />
 
-      <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginTop: 10 }}>Event type (optional, e.g. Wedding)</label>
-      <input style={box} value={sel.event_type || ''} onChange={e => setSel({ ...sel, event_type: e.target.value })} />
+      <label className="cs-label cs-label-mt">Event type (optional, e.g. Wedding)</label>
+      <input className="cs-input" value={sel.event_type || ''} onChange={e => setSel({ ...sel, event_type: e.target.value })} />
 
-      <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginTop: 10 }}>Header (optional)</label>
-      <textarea style={{ ...box, minHeight: 50 }} value={sel.header || ''} onChange={e => setSel({ ...sel, header: e.target.value })} />
+      <label className="cs-label cs-label-mt">Header (optional)</label>
+      <textarea className="cs-input cs-ta-sm" value={sel.header || ''} onChange={e => setSel({ ...sel, header: e.target.value })} />
 
-      <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginTop: 10 }}>Contract body ✍️</label>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, margin: '6px 0' }}>
+      <label className="cs-label cs-label-mt">Contract body ✍️</label>
+      <div className="cs-chips">
         {CT_PLACEHOLDERS.map(p => (
-          <span key={p} onClick={() => insertAt(p)}
-            style={{ background: '#2dd4bf18', border: '1px solid #2dd4bf44', color: '#2dd4bf', padding: '3px 8px', borderRadius: 12, fontSize: 11, cursor: 'pointer' }}>{p}</span>
+          <span key={p} className="cs-chip" onClick={() => insertAt(p)}>{p}</span>
         ))}
-        <span onClick={() => insertAt('[INITIAL]')}
-          style={{ background: '#fbbf2418', border: '1px solid #fbbf2444', color: '#fbbf24', padding: '3px 8px', borderRadius: 12, fontSize: 11, cursor: 'pointer', fontWeight: 700 }}>✍️ [INITIAL] box</span>
+        <span className="cs-chip cs-chip-init" onClick={() => insertAt('[INITIAL]')}>✍️ [INITIAL] box</span>
       </div>
-      <textarea style={{ ...box, minHeight: 220 }} value={sel.body || ''} onChange={e => setSel({ ...sel, body: e.target.value })} />
+      <textarea className="cs-input cs-ta-lg" value={sel.body || ''} onChange={e => setSel({ ...sel, body: e.target.value })} />
 
-      <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginTop: 10 }}>Legal terms (optional)</label>
-      <textarea style={{ ...box, minHeight: 80 }} value={sel.legal_terms || ''} onChange={e => setSel({ ...sel, legal_terms: e.target.value })} />
+      <label className="cs-label cs-label-mt">Legal terms (optional)</label>
+      <textarea className="cs-input cs-ta-md" value={sel.legal_terms || ''} onChange={e => setSel({ ...sel, legal_terms: e.target.value })} />
 
-      <button className="refresh" onClick={save} style={{ marginTop: 14, width: '100%', background: '#2dd4bf', color: '#06231f' }}>💾 Save template</button>
+      <button className="refresh cs-save" onClick={save}>💾 Save template</button>
     </div>
   );
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <div style={{ color: 'var(--muted)', fontSize: 13 }}>🛠️ Build your own contracts — placeholders auto-fill, [INITIAL] adds tap-to-initial boxes</div>
-        <button className="refresh" onClick={add} style={{ background: '#2dd4bf', color: '#06231f' }}>+ New template</button>
+      <div className="cs-head">
+        <div className="cs-hint">🛠️ Build your own contracts — placeholders auto-fill, [INITIAL] adds tap-to-initial boxes</div>
+        <button className="refresh cs-new" onClick={add}>+ New template</button>
       </div>
       {msg && <div className="err-banner">{msg}</div>}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: 14 }}>
-        {tpls.length === 0 && <div style={{ color: 'var(--muted)' }}>No templates yet — create one 👆</div>}
+      <div className="cs-grid">
+        {tpls.length === 0 && <div className="cs-empty">No templates yet — create one 👆</div>}
         {tpls.map(t => (
-          <div key={t.id} className="table-wrap" style={{ padding: 18, cursor: 'pointer' }} onClick={() => setSel(t)}>
-            <div style={{ fontSize: 30 }}>📑</div>
-            <div style={{ fontWeight: 700, marginTop: 6 }}>{t.name}</div>
-            <div style={{ color: 'var(--muted)', fontSize: 12, marginTop: 4 }}>{t.event_type || 'Any event'} · {(t.body.match(/\[INITIAL\]/g) || []).length} initials</div>
+          <div key={t.id} className="table-wrap cs-card" onClick={() => setSel(t)}>
+            <div className="cs-card-ic">📑</div>
+            <div className="cs-card-name">{t.name}</div>
+            <div className="cs-card-meta">{t.event_type || 'Any event'} · {(t.body.match(/\[INITIAL\]/g) || []).length} initials</div>
           </div>
         ))}
       </div>
