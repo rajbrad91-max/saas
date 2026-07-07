@@ -782,6 +782,12 @@ function LeadsView() {
 function LeadDetail({ lead, onBack }) {
   const [edit, setEdit] = useState(false);
   const [f, setF] = useState({ ...lead });
+  const [cfg, setCfg] = useState(null);
+  const [ep, setEp] = useState({ role: lead.role || '', name: lead.name || '', email: lead.email || '', phone: lead.phone || '', instagram: lead.instagram || '', heard: lead.heard || '' });
+  const [eAnswers, setEAnswers] = useState(lead.custom_data || {});
+  const [eNotes, setENotes] = useState(lead.notes || '');
+  const setEpi = (k, v) => setEp(s => ({ ...s, [k]: v }));
+  const setEAns = (id, v) => setEAnswers(s => ({ ...s, [id]: v }));
   const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState(false);
   const [pkgs, setPkgs] = useState([]);
@@ -790,6 +796,10 @@ function LeadDetail({ lead, onBack }) {
   const [pkgBusy, setPkgBusy] = useState(false);
   const [pkgMsg, setPkgMsg] = useState('');
   const set = (k, v) => setF(s => ({ ...s, [k]: v }));
+
+  useEffect(() => {
+    api.inquirySettings(lead.vendor_id).then(d => setCfg(d.settings)).catch(() => setCfg({}));
+  }, [lead.vendor_id]);
 
   async function toggleGateway() {
     const next = !gateway;
@@ -820,27 +830,13 @@ function LeadDetail({ lead, onBack }) {
     } catch (e) { setMsg('⚠️ ' + e.message); }
   }
 
-  function calcHours(from, to) {
-    if (!from || !to) return f.hours || '';
-    const [fh, fm] = from.split(':').map(Number);
-    const [th, tm] = to.split(':').map(Number);
-    let mins = (th * 60 + tm) - (fh * 60 + fm);
-    if (mins < 0) mins += 1440;
-    return (mins / 60).toFixed(1).replace(/\.0$/, '');
-  }
-  function setTime(k, v) {
-    setF(s => {
-      const n = { ...s, [k]: v };
-      n.hours = calcHours(k === 'timing_from' ? v : s.timing_from, k === 'timing_to' ? v : s.timing_to);
-      return n;
-    });
-  }
-
   async function save() {
     setBusy(true); setMsg('');
     try {
       await api.updateLead(lead.id, {
-        ...f, hours: f.hours ? Number(f.hours) : null, guests: f.guests ? Number(f.guests) : null,
+        name: ep.name, email: ep.email, phone: ep.phone,
+        role: ep.role, instagram: ep.instagram, heard: ep.heard,
+        notes: eNotes, custom_data: eAnswers,
       });
       setMsg('✅ Saved'); setEdit(false);
     } catch (e) { setMsg('⚠️ ' + e.message); }
@@ -854,62 +850,21 @@ function LeadDetail({ lead, onBack }) {
       <div>{value || '—'}</div>
     </div>
   );
-  const eRow = (label, k, type) => (
-    <div className="ld-erow">
-      <label className="ld-elabel">{label}</label>
-      <input className="ld-input" type={type || 'text'} value={f[k] ?? ''} onChange={e => set(k, e.target.value)} />
-    </div>
-  );
 
   // ---- EDIT MODE ----
   if (edit) return (
-    <div className="table-wrap ld-wrap">
+    <div className="table-wrap ld-wrap iq-inline">
       <button className="refresh ld-cancel" onClick={() => setEdit(false)}>← Cancel</button>
       <h2 className="ld-h2">✏️ Edit Lead</h2>
       {msg && <div className="ld-msg is-err">{msg}</div>}
-
-      {eRow('👤 Name', 'name')}
-      {eRow('📧 Email', 'email')}
-      {eRow('📞 Phone', 'phone')}
-      {eRow('🎉 Event type', 'event_type')}
-      {eRow('📅 Date', 'event_date', 'date')}
-      <div className="ld-erow ld-time-row">
-        <div className="ld-time-col">
-          <label className="ld-elabel">⏰ Start</label>
-          <input className="ld-input" type="time" value={f.timing_from || ''} onChange={e => setTime('timing_from', e.target.value)} />
-        </div>
-        <div className="ld-time-col">
-          <label className="ld-elabel">⏰ End</label>
-          <input className="ld-input" type="time" value={f.timing_to || ''} onChange={e => setTime('timing_to', e.target.value)} />
-        </div>
-      </div>
-      {row('⏱️ Hours (auto)', f.hours)}
-      {eRow('📍 Location', 'location')}
-      {eRow('👥 Guests', 'guests', 'number')}
-
-      <div className="ld-check-block">
-        <label className="ld-check-lbl">
-          <input type="checkbox" checked={!!f.gr_bride} onChange={e => set('gr_bride', e.target.checked)} className="ld-check" />
-          💄 Bride — Getting Ready
-        </label>
-        {f.gr_bride && <input className="ld-input ld-venue" placeholder="Venue (optional)" value={f.gr_bride_venue || ''} onChange={e => set('gr_bride_venue', e.target.value)} />}
-      </div>
-      <div className="ld-check-block">
-        <label className="ld-check-lbl">
-          <input type="checkbox" checked={!!f.gr_groom} onChange={e => set('gr_groom', e.target.checked)} className="ld-check" />
-          😎 Groom — Getting Ready
-        </label>
-        {f.gr_groom && <input className="ld-input ld-venue" placeholder="Venue (optional)" value={f.gr_groom_venue || ''} onChange={e => set('gr_groom_venue', e.target.value)} />}
-      </div>
-
-      <div className="ld-notes">
-        <label className="ld-elabel">📝 Notes</label>
-        <textarea className="ld-input ld-textarea" value={f.notes || ''} onChange={e => set('notes', e.target.value)} />
-      </div>
-
-      <button className="refresh ld-save" onClick={save} disabled={busy}>
-        {busy ? 'Saving…' : '💾 Save changes'}
-      </button>
+      {!cfg ? <div className="loading">Loading…</div> : (
+        <>
+          <LeadFormBody cfg={cfg} p={ep} setPI={setEpi} answers={eAnswers} setAns={setEAns} notes={eNotes} setNotes={setENotes} />
+          <button className="refresh ld-save" onClick={save} disabled={busy}>
+            {busy ? 'Saving…' : '💾 Save changes'}
+          </button>
+        </>
+      )}
     </div>
   );
 
