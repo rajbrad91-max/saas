@@ -192,7 +192,6 @@
 
 /* 📋 Lead detail — view + edit */
 .ld-wrap { padding: 24px; max-width: 640px; }
-.ld-wrap-view { padding: 26px 28px; }
 .ld-h2 { margin: 4px 0 20px; font-size: 22px; letter-spacing: -.2px; }
 .ld-topbar { display: flex; justify-content: space-between; margin-bottom: 8px; }
 .ld-edit-btn, .ld-save { background: #2dd4bf; color: #06231f; }
