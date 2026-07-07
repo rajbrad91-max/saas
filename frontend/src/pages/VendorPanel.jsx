@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { api, getUser, clearSession } from '../lib/api';
-import { PROFESSIONS } from './InquiryForm';
+import { PROFESSIONS, LeadFormBody } from './InquiryForm';
+import './inquiry.css';
 import './vendor.css';
 
 // 🗝️ tab → required feature (one map controls everything)
@@ -591,48 +592,47 @@ function DashHome({ goTab }) {
 }
 
 // ➕ Manual add-lead modal (mirrors the public inquiry form fields)
-function AddLeadModal({ onClose, onSaveDone }) {
-  const [f, setF] = useState({ name: '', email: '', phone: '', role: '', instagram: '', heard: '', event_type: '', event_date: '', location: '', guests: '', notes: '' });
+function AddLeadModal({ vendorId, onClose, onSaveDone }) {
+  const [cfg, setCfg] = useState(null);
+  const [p, setP] = useState({ role: '', name: '', email: '', phone: '', instagram: '', heard: '' });
+  const [answers, setAnswers] = useState({});
+  const [notes, setNotes] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
-  const set = (k, v) => setF(s => ({ ...s, [k]: v }));
+  const setPI = (k, v) => setP(s => ({ ...s, [k]: v }));
+  const setAns = (id, v) => setAnswers(s => ({ ...s, [id]: v }));
+
+  useEffect(() => {
+    api.inquirySettings(vendorId).then(d => setCfg(d.settings)).catch(() => setCfg({}));
+  }, [vendorId]);
 
   async function save() {
     setErr('');
-    if (!f.name || !f.email) { setErr('Name and email are required'); return; }
+    if (!p.name || !p.email) { setErr('Name and email are required'); return; }
+    for (const fld of (cfg?.custom_fields || [])) {
+      if (fld.required && !answers[fld.id]) { setErr(`"${fld.label}" is required`); return; }
+    }
     setBusy(true);
-    try { await api.createLead(f); onSaveDone(); }
-    catch (e) { setErr(e.message || 'Failed'); setBusy(false); }
+    try {
+      await api.createLead({ name: p.name, email: p.email, phone: p.phone, role: p.role, instagram: p.instagram, heard: p.heard, notes, custom_data: answers });
+      onSaveDone();
+    } catch (e) { setErr(e.message || 'Failed'); setBusy(false); }
   }
 
   return (
     <div className="al-overlay" onClick={onClose}>
-      <div className="al-modal" onClick={e => e.stopPropagation()}>
+      <div className="al-modal iq-inline" onClick={e => e.stopPropagation()}>
         <div className="al-head">
           <h3 className="al-title">➕ Add Lead</h3>
           <button className="al-x" onClick={onClose}>✕</button>
         </div>
-        {err && <div className="al-err">⚠️ {err}</div>}
-
-        <div className="al-grid">
-          <div><label className="al-lbl">Full Name *</label><input className="al-input" value={f.name} onChange={e => set('name', e.target.value)} /></div>
-          <div><label className="al-lbl">Role</label>
-            <select className="al-input" value={f.role} onChange={e => set('role', e.target.value)}>
-              <option value="">Select…</option><option>Bride</option><option>Groom</option><option>Planner</option><option>Other</option>
-            </select>
-          </div>
-          <div><label className="al-lbl">Email *</label><input className="al-input" value={f.email} onChange={e => set('email', e.target.value)} /></div>
-          <div><label className="al-lbl">Phone</label><input className="al-input" value={f.phone} onChange={e => set('phone', e.target.value)} /></div>
-          <div><label className="al-lbl">Instagram</label><input className="al-input" value={f.instagram} onChange={e => set('instagram', e.target.value)} /></div>
-          <div><label className="al-lbl">How heard</label><input className="al-input" value={f.heard} onChange={e => set('heard', e.target.value)} /></div>
-          <div><label className="al-lbl">Event Type</label><input className="al-input" value={f.event_type} onChange={e => set('event_type', e.target.value)} /></div>
-          <div><label className="al-lbl">Event Date</label><input className="al-input" type="date" value={f.event_date} onChange={e => set('event_date', e.target.value)} /></div>
-          <div><label className="al-lbl">Location</label><input className="al-input" value={f.location} onChange={e => set('location', e.target.value)} /></div>
-          <div><label className="al-lbl">Guests</label><input className="al-input" type="number" value={f.guests} onChange={e => set('guests', e.target.value)} /></div>
-          <div className="al-full"><label className="al-lbl">Notes</label><textarea className="al-input al-ta" value={f.notes} onChange={e => set('notes', e.target.value)} /></div>
-        </div>
-
-        <button className="refresh al-save" onClick={save} disabled={busy}>{busy ? 'Saving…' : '💾 Save Lead'}</button>
+        {!cfg ? <div className="loading">Loading…</div> : (
+          <>
+            <LeadFormBody cfg={cfg} p={p} setPI={setPI} answers={answers} setAns={setAns} notes={notes} setNotes={setNotes} />
+            {err && <div className="al-err">⚠️ {err}</div>}
+            <button className="refresh al-save" onClick={save} disabled={busy}>{busy ? 'Saving…' : '💾 Save Lead'}</button>
+          </>
+        )}
       </div>
     </div>
   );
@@ -742,7 +742,7 @@ function LeadsView() {
         <input className="lead-search" autoFocus placeholder="🔍 Search name, email, phone, event…" value={search} onChange={e => setSearch(e.target.value)} />
       )}
 
-      {showAdd && <AddLeadModal onClose={() => setShowAdd(false)} onSaveDone={() => { setShowAdd(false); load(); }} />}
+      {showAdd && <AddLeadModal vendorId={getUser()?.vendor_id} onClose={() => setShowAdd(false)} onSaveDone={() => { setShowAdd(false); load(); }} />}
 
       <div className="table-wrap">
         <table>

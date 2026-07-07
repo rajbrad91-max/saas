@@ -214,6 +214,19 @@
 .al-input:focus { outline: none; border-color: #2dd4bf; }
 .al-ta { min-height: 60px; }
 .al-save { margin-top: 16px; width: 100%; background: #2dd4bf; color: #06231f; }
+
+/* shared LeadFormBody inside dark modal — override cream theme */
+.iq-inline .iq-section { padding: 16px 0; border-top: 1px solid var(--line); }
+.iq-inline .iq-section:first-child { border-top: none; }
+.iq-inline .iq-section-title { color: #2dd4bf; }
+.iq-inline .iq-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.iq-inline .iq-full { grid-column: 1 / -1; }
+.iq-inline label { color: var(--muted); font-size: 12px; font-weight: 600; }
+.iq-inline input, .iq-inline select, .iq-inline textarea { width: 100%; background: var(--panel-2); border: 1px solid var(--line); border-radius: 9px; color: var(--text); padding: 10px 11px; box-sizing: border-box; }
+.iq-inline input:focus, .iq-inline select:focus, .iq-inline textarea:focus { outline: none; border-color: #2dd4bf; }
+.iq-inline .iq-check-row { display: flex; align-items: center; gap: 8px; color: var(--text); }
+.iq-inline .iq-check-row input { width: 16px; }
+@media (max-width: 560px){ .iq-inline .iq-grid { grid-template-columns: 1fr; } }
 @media (max-width: 560px){ .al-grid { grid-template-columns: 1fr; } }
 
 /* 📅 Bookings list/calendar toggle */

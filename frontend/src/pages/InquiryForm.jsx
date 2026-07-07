@@ -90,63 +90,7 @@ export default function InquiryForm({ vendorId }) {
         </div>
 
         <div className="iq-body">
-          {/* ── Section 1: Contact Details ── */}
-          <div className="iq-section">
-            <div className="iq-section-title">📇 Contact Details</div>
-            <div className="iq-grid">
-              <div>
-                <label>Your Role *</label>
-                <select value={p.role} onChange={e => setPI('role', e.target.value)}>
-                  <option value="">Select…</option>
-                  <option>Bride</option><option>Groom</option><option>Planner</option><option>Other</option>
-                </select>
-              </div>
-              <div>
-                <label>Full Name *</label>
-                <input value={p.name} onChange={e => setPI('name', e.target.value)} placeholder="Full name" />
-              </div>
-              <div>
-                <label>Email *</label>
-                <input value={p.email} onChange={e => setPI('email', e.target.value)} placeholder="you@email.com" />
-              </div>
-              <div>
-                <label>Phone *</label>
-                <input value={p.phone} onChange={e => setPI('phone', e.target.value)} placeholder="(555) 555-5555" />
-              </div>
-              <div>
-                <label>Instagram Handle</label>
-                <input value={p.instagram} onChange={e => setPI('instagram', e.target.value)} placeholder="@yourhandle" />
-              </div>
-              <div>
-                <label>How did you hear about us?</label>
-                <select value={p.heard} onChange={e => setPI('heard', e.target.value)}>
-                  <option value="">Select…</option>
-                  <option>Friend</option><option>Google Maps</option><option>Instagram</option><option>Facebook</option><option>Other</option>
-                </select>
-              </div>
-            </div>
-          </div>
-
-          {/* ── Section 2: Inquiry Details ── */}
-          {(c.custom_fields || []).length > 0 && (
-            <div className="iq-section">
-              <div className="iq-section-title">✨ {c.details_heading || 'Inquiry Details'}</div>
-              <div className="iq-grid">
-                {c.custom_fields.map(fld => (
-                  <div key={fld.id} className={fld.type === 'checkbox' ? 'iq-full' : ''}>
-                    <CustomField fld={fld} value={answers[fld.id]} onChange={v => setAns(fld.id, v)} />
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* ── Section 3: Notes ── */}
-          <div className="iq-section">
-            <div className="iq-section-title">📝 Notes</div>
-            <label>Anything else?</label>
-            <textarea value={notes} onChange={e => setNotes(e.target.value)} rows="3" placeholder="Tell us more…" />
-          </div>
+          <LeadFormBody cfg={c} p={p} setPI={setPI} answers={answers} setAns={setAns} notes={notes} setNotes={setNotes} />
 
           {err && <div className="iq-err">⚠️ {err}</div>}
           <button className="iq-btn" onClick={submit} disabled={busy}>
@@ -155,6 +99,72 @@ export default function InquiryForm({ vendorId }) {
         </div>
       </div>
     </div>
+  );
+}
+
+// 🧩 SHARED form body — used by Public form, Add Lead, Edit Lead
+export function LeadFormBody({ cfg, p, setPI, answers, setAns, notes, setNotes }) {
+  const c = cfg || {};
+  return (
+    <>
+      {/* Section 1: Contact Details */}
+      <div className="iq-section">
+        <div className="iq-section-title">📇 Contact Details</div>
+        <div className="iq-grid">
+          <div>
+            <label>Your Role *</label>
+            <select value={p.role} onChange={e => setPI('role', e.target.value)}>
+              <option value="">Select…</option>
+              <option>Bride</option><option>Groom</option><option>Planner</option><option>Other</option>
+            </select>
+          </div>
+          <div>
+            <label>Full Name *</label>
+            <input value={p.name} onChange={e => setPI('name', e.target.value)} placeholder="Full name" />
+          </div>
+          <div>
+            <label>Email *</label>
+            <input value={p.email} onChange={e => setPI('email', e.target.value)} placeholder="you@email.com" />
+          </div>
+          <div>
+            <label>Phone *</label>
+            <input value={p.phone} onChange={e => setPI('phone', e.target.value)} placeholder="(555) 555-5555" />
+          </div>
+          <div>
+            <label>Instagram Handle</label>
+            <input value={p.instagram} onChange={e => setPI('instagram', e.target.value)} placeholder="@yourhandle" />
+          </div>
+          <div>
+            <label>How did you hear about us?</label>
+            <select value={p.heard} onChange={e => setPI('heard', e.target.value)}>
+              <option value="">Select…</option>
+              <option>Friend</option><option>Google Maps</option><option>Instagram</option><option>Facebook</option><option>Other</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Section 2: Inquiry Details (custom fields) */}
+      {(c.custom_fields || []).length > 0 && (
+        <div className="iq-section">
+          <div className="iq-section-title">✨ {c.details_heading || 'Inquiry Details'}</div>
+          <div className="iq-grid">
+            {c.custom_fields.map(fld => (
+              <div key={fld.id} className={fld.type === 'checkbox' ? 'iq-full' : ''}>
+                <CustomField fld={fld} value={answers[fld.id]} onChange={v => setAns(fld.id, v)} />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Section 3: Notes */}
+      <div className="iq-section">
+        <div className="iq-section-title">📝 Notes</div>
+        <label>Anything else?</label>
+        <textarea value={notes} onChange={e => setNotes(e.target.value)} rows="3" placeholder="Tell us more…" />
+      </div>
+    </>
   );
 }
 
