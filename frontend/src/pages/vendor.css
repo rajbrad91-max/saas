@@ -190,6 +190,15 @@
 .lead-check { accent-color: #2dd4bf; pointer-events: none; }
 .lead-restore { cursor: pointer; color: #2dd4bf; font-size: 12px; }
 
+/* 📅 Bookings list/calendar toggle */
+.bk-toggle { display: flex; justify-content: flex-end; gap: 0; margin-bottom: 14px; }
+.bk-tog-btn { padding: 8px 16px; font-size: 13px; font-weight: 600; background: var(--panel-2); border: 1px solid var(--line); color: var(--muted); cursor: pointer; }
+.bk-tog-btn:first-child { border-radius: 9px 0 0 9px; border-right: none; }
+.bk-tog-btn:last-child { border-radius: 0 9px 9px 0; }
+.bk-tog-btn.is-on { background: #2dd4bf; color: #06231f; border-color: #2dd4bf; }
+.bk-paid { color: #4ade80; }
+.bk-due { color: #fbbf24; }
+
 /* 📋 Lead detail — view + edit */
 .ld-wrap { padding: 24px; max-width: 640px; }
 .ld-h2 { margin: 4px 0 20px; font-size: 22px; letter-spacing: -.2px; }

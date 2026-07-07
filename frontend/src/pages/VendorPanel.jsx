@@ -82,7 +82,6 @@ export default function VendorPanel({ onLogout }) {
         <div className={`nav-item ${tab==='dashboard'?'active':''}`} onClick={() => go('dashboard')}><span className="nav-ic">📊</span><span className="nav-txt">Dashboard</span></div>
         {has('leads') && <div className={`nav-item ${tab==='leads'?'active':''}`} onClick={() => go('leads')}><span className="nav-ic">📋</span><span className="nav-txt">Leads</span></div>}
         {has('leads') && <div className={`nav-item ${tab==='bookings'?'active':''}`} onClick={() => go('bookings')}><span className="nav-ic">📅</span><span className="nav-txt">Bookings</span></div>}
-        {has('calendar') && <div className={`nav-item ${tab==='calendar'?'active':''}`} onClick={() => go('calendar')}><span className="nav-ic">🗓️</span><span className="nav-txt">Calendar</span></div>}
         {has('contracts') && <div className={`nav-item ${tab==='contracts'?'active':''}`} onClick={() => go('contracts')}><span className="nav-ic">📄</span><span className="nav-txt">Contracts & Invoices</span></div>}
         {has('crew') && <div className={`nav-item ${tab==='crew'?'active':''}`} onClick={() => go('crew')}><span className="nav-ic">👷</span><span className="nav-txt">My Crew</span></div>}
         {has('galleries') && <div className={`nav-item ${tab==='galleries'?'active':''}`} onClick={() => go('galleries')}><span className="nav-ic">📸</span><span className="nav-txt">Galleries</span></div>}
@@ -1099,29 +1098,39 @@ function MoneySection({ lead }) {
 function BookingsView() {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [mode, setMode] = useState('list'); // list | calendar
   useEffect(() => {
     api.bookings().then(d => setBookings(d.bookings || [])).catch(() => {}).finally(() => setLoading(false));
   }, []);
   if (loading) return <div className="loading">Loading…</div>;
   return (
-    <div className="table-wrap">
-      <table>
-        <thead><tr><th>Client</th><th>Event</th><th>Date</th><th>Total</th><th>Paid</th><th>Balance</th></tr></thead>
-        <tbody>
-          {bookings.length === 0 ? (
-            <tr><td colSpan="6" className="empty">No bookings yet. Set a lead's status to ✅ booked!</td></tr>
-          ) : bookings.map(b => (
-            <tr key={b.id}>
-              <td className="biz">{b.name}</td>
-              <td>{b.event_type}</td>
-              <td>{b.event_date ? String(b.event_date).slice(0, 10) : '—'}</td>
-              <td>${b.money?.final_total ?? 0}</td>
-              <td style={{ color: '#4ade80' }}>${b.money?.paid ?? 0}</td>
-              <td style={{ color: b.money?.balance > 0 ? '#fbbf24' : '#4ade80' }}>${b.money?.balance ?? 0}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div>
+      <div className="bk-toggle">
+        <button className={`bk-tog-btn ${mode === 'list' ? 'is-on' : ''}`} onClick={() => setMode('list')}>📋 List</button>
+        <button className={`bk-tog-btn ${mode === 'calendar' ? 'is-on' : ''}`} onClick={() => setMode('calendar')}>🗓️ Calendar</button>
+      </div>
+
+      {mode === 'calendar' ? <CalendarView /> : (
+        <div className="table-wrap">
+          <table>
+            <thead><tr><th>Client</th><th>Event</th><th>Date</th><th>Total</th><th>Paid</th><th>Balance</th></tr></thead>
+            <tbody>
+              {bookings.length === 0 ? (
+                <tr><td colSpan="6" className="empty">No bookings yet. Set a lead's status to ✅ booked!</td></tr>
+              ) : bookings.map(b => (
+                <tr key={b.id}>
+                  <td className="biz">{b.name}</td>
+                  <td>{b.event_type}</td>
+                  <td>{b.event_date ? String(b.event_date).slice(0, 10) : '—'}</td>
+                  <td>${b.money?.final_total ?? 0}</td>
+                  <td className="bk-paid">${b.money?.paid ?? 0}</td>
+                  <td className={b.money?.balance > 0 ? 'bk-due' : 'bk-paid'}>${b.money?.balance ?? 0}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
