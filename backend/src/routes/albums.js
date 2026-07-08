@@ -46,6 +46,63 @@ router.post('/', requireAuth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// 🔒 confirmed bookings (for auto-fill name + phone) — status 'booked'
+router.get('/booking-options', requireAuth, async (req, res) => {
+  const v = vid(req);
+  if (!v) return res.status(400).json({ error: 'No vendor' });
+  try {
+    const { rows } = await query(
+      `SELECT id, name, phone, email FROM leads
+       WHERE vendor_id=$1 AND status='booked' AND archived_at IS NULL AND name IS NOT NULL
+       ORDER BY name`, [v]);
+    res.json({ bookings: rows });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// 🔒 update album (title, category, passwords)
+router.put('/:id', requireAuth, async (req, res) => {
+  const v = vid(req);
+  const { title, category, guest_username, guest_password, admin_username, admin_password } = req.body;
+  try {
+    const { rows: own } = await query('SELECT id FROM albums WHERE id=$1 AND vendor_id=$2', [req.params.id, v]);
+    if (!own[0]) return res.status(404).json({ error: 'Not found' });
+    const { rows } = await query(
+      `UPDATE albums SET
+        title=COALESCE($1,title), category=$2,
+        guest_username=$3, guest_password=$4, admin_username=$5, admin_password=$6
+       WHERE id=$7 RETURNING *`,
+      [title || null, category || null, guest_username || null, guest_password || null,
+       admin_username || null, admin_password || null, req.params.id]);
+    res.json({ album: rows[0] });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// 🔒 upload/replace cover photo → webp 1200px
+router.post('/:id/cover', requireAuth, upload.single('cover'), async (req, res) => {
+  const v = vid(req);
+  try {
+    const { rows: own } = await query('SELECT id FROM albums WHERE id=$1 AND vendor_id=$2', [req.params.id, v]);
+    if (!own[0]) return res.status(404).json({ error: 'Not found' });
+    if (!req.file) return res.status(400).json({ error: 'No file' });
+    const dir = path.join(ROOT, String(req.params.id));
+    fs.mkdirSync(dir, { recursive: true });
+    const fname = `cover_${Date.now()}.webp`;
+    await sharp(req.file.path).rotate().resize(1200, 1200, { fit: 'inside', withoutEnlargement: true }).webp({ quality: 82 }).toFile(path.join(dir, fname));
+    fs.unlink(req.file.path, () => {});
+    const { rows } = await query('UPDATE albums SET cover_photo=$1 WHERE id=$2 RETURNING *', [fname, req.params.id]);
+    res.json({ album: rows[0] });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// 🌐 public cover image
+router.get('/cover/:id', async (req, res) => {
+  try {
+    const { rows } = await query('SELECT cover_photo FROM albums WHERE id=$1', [req.params.id]);
+    if (!rows[0] || !rows[0].cover_photo) return res.status(404).end();
+    res.sendFile(path.join(ROOT, String(req.params.id), rows[0].cover_photo));
+  } catch { res.status(404).end(); }
+});
+
 // 🔒 album detail + photos (tenant-checked)
 router.get('/:id', requireAuth, async (req, res) => {
   const v = vid(req);

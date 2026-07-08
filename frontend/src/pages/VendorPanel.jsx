@@ -205,20 +205,59 @@ function GalleriesView() {
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(null); // album id being viewed
   const [showNew, setShowNew] = useState(false);
+  const [edit, setEdit] = useState(null); // album being edited
+  const [bookings, setBookings] = useState([]);
+  const [pwPrefix, setPwPrefix] = useState('');
+  const [spwPrefix, setSpwPrefix] = useState('admin');
+  const [coverFile, setCoverFile] = useState(null);
   const [f, setF] = useState({ title: '', category: '', guest_username: '', guest_password: '', admin_username: '', admin_password: '' });
   const [msg, setMsg] = useState('');
-  const box = { background: 'var(--panel-2)', border: '1px solid var(--line)', borderRadius: 8, color: 'var(--text)', padding: 9, width: '100%' };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); api.albumBookingOptions().then(d => setBookings(d.bookings || [])).catch(() => {}); }, []);
   function load() { setLoading(true); api.albums().then(d => setAlbums(d.albums || [])).catch(() => {}).finally(() => setLoading(false)); }
 
+  // 🤖 auto password = prefix + last-4 of phone
+  function last4(phone) {
+    const digits = String(phone || '').replace(/\D/g, '');
+    return digits.length >= 4 ? digits.slice(-4) : digits;
+  }
+  function pickBooking(id) {
+    const b = bookings.find(x => String(x.id) === String(id));
+    if (!b) return;
+    const tail = last4(b.phone);
+    setF(s => ({
+      ...s,
+      title: b.name,
+      guest_username: b.name,
+      guest_password: pwPrefix + tail,
+      admin_username: b.name,
+      admin_password: spwPrefix + tail,
+    }));
+  }
+  function genPasswords() {
+    // random 4-digit tail if no booking chosen
+    const tail = String(Math.floor(1000 + Math.random() * 9000));
+    setF(s => ({ ...s, guest_password: pwPrefix + tail, admin_password: spwPrefix + tail }));
+  }
+
+  function resetForm() {
+    setF({ title: '', category: '', guest_username: '', guest_password: '', admin_username: '', admin_password: '' });
+    setCoverFile(null); setEdit(null); setMsg('');
+  }
   async function create() {
     if (!f.title) return setMsg('⚠️ Title required');
     try {
-      await api.createAlbum(f);
-      setF({ title: '', category: '', guest_username: '', guest_password: '', admin_username: '', admin_password: '' });
-      setShowNew(false); setMsg(''); load();
+      let album;
+      if (edit) { const d = await api.updateAlbum(edit.id, f); album = d.album; }
+      else { const d = await api.createAlbum(f); album = d.album; }
+      if (coverFile && album) { try { await api.uploadAlbumCover(album.id, coverFile); } catch {} }
+      resetForm(); setShowNew(false); load();
     } catch (e) { setMsg('⚠️ ' + e.message); }
+  }
+  function startEdit(a) {
+    setEdit(a);
+    setF({ title: a.title || '', category: a.category || '', guest_username: a.guest_username || '', guest_password: a.guest_password || '', admin_username: a.admin_username || '', admin_password: a.admin_password || '' });
+    setCoverFile(null); setShowNew(true); setMsg('');
   }
   async function del(id) {
     if (!confirm('Delete this album and all its photos?')) return;
@@ -230,42 +269,82 @@ function GalleriesView() {
 
   return (
     <>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-        <h2 style={{ margin: 0 }}>📸 Galleries</h2>
-        <button className="refresh" style={{ background: '#2dd4bf', color: '#06231f' }} onClick={() => setShowNew(s => !s)}>{showNew ? '✕ Cancel' : '+ New Album'}</button>
+      <div className="gal-head">
+        <h2 className="gal-title">📸 Galleries</h2>
+        <button className="refresh gal-new-btn" onClick={() => { if (showNew) resetForm(); setShowNew(s => !s); }}>{showNew ? '✕ Cancel' : '+ New Album'}</button>
       </div>
 
       {showNew && (
-        <div className="table-wrap" style={{ padding: 18, marginBottom: 18 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            <div><label className="lbl">Title *</label><input style={box} value={f.title} onChange={e => setF({ ...f, title: e.target.value })} placeholder="Susan & Mike Wedding" /></div>
-            <div><label className="lbl">Category</label><input style={box} value={f.category} onChange={e => setF({ ...f, category: e.target.value })} placeholder="Wedding" /></div>
-            <div><label className="lbl">👁️ Guest username</label><input style={box} value={f.guest_username} onChange={e => setF({ ...f, guest_username: e.target.value })} /></div>
-            <div><label className="lbl">👁️ Guest password</label><input style={box} value={f.guest_password} onChange={e => setF({ ...f, guest_password: e.target.value })} /></div>
-            <div><label className="lbl">🔑 Admin username</label><input style={box} value={f.admin_username} onChange={e => setF({ ...f, admin_username: e.target.value })} /></div>
-            <div><label className="lbl">🔑 Admin password</label><input style={box} value={f.admin_password} onChange={e => setF({ ...f, admin_password: e.target.value })} /></div>
+        <div className="table-wrap gal-form">
+          <div className="gal-form-h">{edit ? '✏️ Edit Album' : '➕ New Album'}</div>
+
+          {!edit && bookings.length > 0 && (
+            <div className="gal-pick">
+              <label className="lbl">📞 Auto-fill from a confirmed booking</label>
+              <select className="gal-input" defaultValue="" onChange={e => pickBooking(e.target.value)}>
+                <option value="">— Pick a booking —</option>
+                {bookings.map(b => <option key={b.id} value={b.id}>{b.name}{b.phone ? ` · ${b.phone}` : ''}</option>)}
+              </select>
+            </div>
+          )}
+
+          <div className="gal-grid">
+            <div className="gal-full"><label className="lbl">Gallery Name *</label><input className="gal-input" value={f.title} onChange={e => setF({ ...f, title: e.target.value })} placeholder="Susan & Mike Wedding" /></div>
+            <div><label className="lbl">Category</label><input className="gal-input" value={f.category} onChange={e => setF({ ...f, category: e.target.value })} placeholder="Wedding" /></div>
+            <div>
+              <label className="lbl">🖼️ Cover photo</label>
+              <label className="gal-cover-btn">
+                {coverFile ? `✅ ${coverFile.name.slice(0, 18)}…` : (edit?.cover_photo ? '🖼️ Replace cover' : '📤 Choose cover')}
+                <input type="file" accept="image/*" hidden onChange={e => setCoverFile(e.target.files[0] || null)} />
+              </label>
+            </div>
           </div>
-          <div style={{ marginTop: 12, display: 'flex', gap: 10, alignItems: 'center' }}>
-            <button className="refresh" style={{ background: '#2dd4bf', color: '#06231f' }} onClick={create}>✅ Create album</button>
-            {msg && <span style={{ color: '#fb7185', fontSize: 13 }}>{msg}</span>}
+
+          <div className="gal-pw-head">
+            🔑 Access passwords
+            <span className="gal-pw-tools">
+              <input className="gal-prefix" value={pwPrefix} onChange={e => setPwPrefix(e.target.value)} placeholder="guest prefix" title="Guest password prefix" />
+              <input className="gal-prefix" value={spwPrefix} onChange={e => setSpwPrefix(e.target.value)} placeholder="admin prefix" title="Admin password prefix" />
+              <button className="gal-gen" onClick={genPasswords} title="Generate passwords">🎲 Auto</button>
+            </span>
+          </div>
+          <div className="gal-grid">
+            <div><label className="lbl">👁️ Guest username</label><input className="gal-input" value={f.guest_username} onChange={e => setF({ ...f, guest_username: e.target.value })} /></div>
+            <div><label className="lbl">👁️ Guest password</label><input className="gal-input" value={f.guest_password} onChange={e => setF({ ...f, guest_password: e.target.value })} /></div>
+            <div><label className="lbl">🔐 Admin username</label><input className="gal-input" value={f.admin_username} onChange={e => setF({ ...f, admin_username: e.target.value })} /></div>
+            <div><label className="lbl">🔐 Admin password</label><input className="gal-input" value={f.admin_password} onChange={e => setF({ ...f, admin_password: e.target.value })} /></div>
+          </div>
+
+          <div className="gal-form-foot">
+            <button className="refresh gal-save" onClick={create}>{edit ? '💾 Save changes' : '✅ Create album'}</button>
+            {msg && <span className="gal-err">{msg}</span>}
           </div>
         </div>
       )}
 
       {albums.length === 0 ? (
-        <div className="table-wrap" style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>No albums yet. Create your first one 📸</div>
+        <div className="table-wrap gal-empty">No albums yet. Create your first one 📸</div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(240px,1fr))', gap: 16 }}>
+        <div className="gal-cards">
           {albums.map(a => (
-            <div key={a.id} className="table-wrap" style={{ padding: 16, cursor: 'pointer' }} onClick={() => setOpen(a.id)}>
-              <div style={{ fontSize: 34, marginBottom: 8 }}>🖼️</div>
-              <div style={{ fontWeight: 800, fontSize: 15 }}>{a.title}</div>
-              <div style={{ color: 'var(--muted)', fontSize: 12, marginBottom: 8 }}>{a.category || '—'}</div>
-              <div style={{ display: 'flex', gap: 12, fontSize: 12 }}>
-                <span>📷 {a.photo_count} photos</span>
-                {a.selected_count > 0 && <span style={{ color: '#2dd4bf' }}>✅ {a.selected_count} picked</span>}
+            <div key={a.id} className="table-wrap gal-card" onClick={() => setOpen(a.id)}>
+              <div className="gal-card-cover">
+                {a.cover_photo
+                  ? <img src={api.albumCoverUrl(a.id)} alt={a.title} loading="lazy" />
+                  : <div className="gal-card-noimg">🖼️</div>}
               </div>
-              <button className="refresh" style={{ marginTop: 10, fontSize: 11, padding: '4px 10px' }} onClick={e => { e.stopPropagation(); del(a.id); }}>🗑️ Delete</button>
+              <div className="gal-card-body">
+                <div className="gal-card-title">{a.title}</div>
+                <div className="gal-card-cat">{a.category || '—'}</div>
+                <div className="gal-card-meta">
+                  <span>📷 {a.photo_count}</span>
+                  {a.selected_count > 0 && <span className="gal-picked">✅ {a.selected_count}</span>}
+                </div>
+                <div className="gal-card-actions">
+                  <button className="gal-mini" onClick={e => { e.stopPropagation(); startEdit(a); }}>✏️ Edit</button>
+                  <button className="gal-mini gal-mini-del" onClick={e => { e.stopPropagation(); del(a.id); }}>🗑️</button>
+                </div>
+              </div>
             </div>
           ))}
         </div>

@@ -153,6 +153,20 @@ export const api = {
   // 📸 galleries
   albums: () => request('/albums'),
   createAlbum: (data) => request('/albums', { method: 'POST', body: JSON.stringify(data) }),
+  updateAlbum: (id, data) => request(`/albums/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  albumBookingOptions: () => request('/albums/booking-options'),
+  uploadAlbumCover: async (albumId, file) => {
+    const fd = new FormData();
+    fd.append('cover', file);
+    const token = localStorage.getItem('vowflo_token');
+    const res = await fetch(`/api/albums/${albumId}/cover`, {
+      method: 'POST', headers: token ? { Authorization: `Bearer ${token}` } : {}, body: fd,
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'Cover upload failed');
+    return data;
+  },
+  albumCoverUrl: (id) => `/api/albums/cover/${id}`,
   album: (id) => request(`/albums/${id}`),
   deleteAlbum: (id) => request(`/albums/${id}`, { method: 'DELETE' }),
   deletePhoto: (albumId, photoId) => request(`/albums/${albumId}/photos/${photoId}`, { method: 'DELETE' }),
