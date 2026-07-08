@@ -208,12 +208,26 @@ function GalleriesView() {
   const [edit, setEdit] = useState(null); // album being edited
   const [bookings, setBookings] = useState([]);
   const [pwPrefix, setPwPrefix] = useState('');
-  const [spwPrefix, setSpwPrefix] = useState('admin');
+  const [spwPrefix, setSpwPrefix] = useState('');
   const [coverFile, setCoverFile] = useState(null);
-  const [f, setF] = useState({ title: '', category: '', guest_username: '', guest_password: '', admin_username: '', admin_password: '' });
+  const [showSettings, setShowSettings] = useState(false);
+  const [tpl, setTpl] = useState('');
+  const [f, setF] = useState(emptyAlbum());
   const [msg, setMsg] = useState('');
 
-  useEffect(() => { load(); api.albumBookingOptions().then(d => setBookings(d.bookings || [])).catch(() => {}); }, []);
+  function emptyAlbum() {
+    return { title: '', category: '', client_email: '', guest_username: '', guest_password: '', admin_username: '', admin_password: '', exp_enabled: false, exp_from_date: '', exp_date: '', exp_notes: '', face_ai: false };
+  }
+
+  useEffect(() => {
+    load();
+    api.albumBookingOptions().then(d => setBookings(d.bookings || [])).catch(() => {});
+    api.albumSettings().then(d => {
+      const s = d.settings || {};
+      setPwPrefix(s.pw_prefix || ''); setSpwPrefix(s.spw_prefix || '');
+      setTpl(s.instructions_template || '');
+    }).catch(() => {});
+  }, []);
   function load() { setLoading(true); api.albums().then(d => setAlbums(d.albums || [])).catch(() => {}).finally(() => setLoading(false)); }
 
   // 🤖 auto password = prefix + last-4 of phone
@@ -228,6 +242,7 @@ function GalleriesView() {
     setF(s => ({
       ...s,
       title: b.name,
+      client_email: b.email || '',
       guest_username: b.name,
       guest_password: pwPrefix + tail,
       admin_username: b.name,
@@ -235,18 +250,26 @@ function GalleriesView() {
     }));
   }
   function genPasswords() {
-    // random 4-digit tail if no booking chosen
     const tail = String(Math.floor(1000 + Math.random() * 9000));
     setF(s => ({ ...s, guest_password: pwPrefix + tail, admin_password: spwPrefix + tail }));
   }
-
-  function resetForm() {
-    setF({ title: '', category: '', guest_username: '', guest_password: '', admin_username: '', admin_password: '' });
-    setCoverFile(null); setEdit(null); setMsg('');
+  // 🔄 changing a prefix re-applies to the existing last-4 tail (PerfectPoses behaviour)
+  function applyPrefix(which, val) {
+    if (which === 'guest') setPwPrefix(val); else setSpwPrefix(val);
+    setF(s => {
+      const src = which === 'guest' ? s.guest_password : s.admin_password;
+      const tail = last4(src);
+      if (!tail) return s;
+      return which === 'guest' ? { ...s, guest_password: val + tail } : { ...s, admin_password: val + tail };
+    });
   }
+
+  function resetForm() { setF(emptyAlbum()); setCoverFile(null); setEdit(null); setMsg(''); }
   async function create() {
-    if (!f.title) return setMsg('⚠️ Title required');
+    if (!f.title) return setMsg('⚠️ Gallery name required');
     try {
+      // persist prefixes for next time
+      api.saveAlbumSettings({ pw_prefix: pwPrefix, spw_prefix: spwPrefix, instructions_template: tpl }).catch(() => {});
       let album;
       if (edit) { const d = await api.updateAlbum(edit.id, f); album = d.album; }
       else { const d = await api.createAlbum(f); album = d.album; }
@@ -256,12 +279,28 @@ function GalleriesView() {
   }
   function startEdit(a) {
     setEdit(a);
-    setF({ title: a.title || '', category: a.category || '', guest_username: a.guest_username || '', guest_password: a.guest_password || '', admin_username: a.admin_username || '', admin_password: a.admin_password || '' });
+    setF({
+      title: a.title || '', category: a.category || '', client_email: a.client_email || '',
+      guest_username: a.guest_username || '', guest_password: a.guest_password || '',
+      admin_username: a.admin_username || '', admin_password: a.admin_password || '',
+      exp_enabled: !!a.exp_enabled, exp_from_date: a.exp_from_date ? String(a.exp_from_date).slice(0,10) : '',
+      exp_date: a.exp_date ? String(a.exp_date).slice(0,10) : '', exp_notes: a.exp_notes || '', face_ai: !!a.face_ai,
+    });
     setCoverFile(null); setShowNew(true); setMsg('');
   }
   async function del(id) {
     if (!confirm('Delete this album and all its photos?')) return;
     await api.deleteAlbum(id); load();
+  }
+  async function emailInstructions(a) {
+    if (!a.client_email) return alert('No client email on this album. Edit it to add one.');
+    if (!confirm(`Email gallery instructions to ${a.client_email}?`)) return;
+    try { await api.emailAlbumInstructions(a.id, tpl || undefined); alert('✅ Instructions emailed!'); }
+    catch (e) { alert('⚠️ ' + e.message); }
+  }
+  async function saveSettingsOnly() {
+    try { await api.saveAlbumSettings({ pw_prefix: pwPrefix, spw_prefix: spwPrefix, instructions_template: tpl }); setShowSettings(false); }
+    catch (e) { alert('⚠️ ' + e.message); }
   }
 
   if (open) return <AlbumDetail albumId={open} onBack={() => { setOpen(null); load(); }} />;
@@ -271,7 +310,10 @@ function GalleriesView() {
     <>
       <div className="gal-head">
         <h2 className="gal-title">📸 Galleries</h2>
-        <button className="refresh gal-new-btn" onClick={() => { if (showNew) resetForm(); setShowNew(s => !s); }}>{showNew ? '✕ Cancel' : '+ New Album'}</button>
+        <div className="gal-head-btns">
+          <button className="refresh gal-set-btn" onClick={() => setShowSettings(true)}>⚙️ Settings</button>
+          <button className="refresh gal-new-btn" onClick={() => { if (showNew) resetForm(); setShowNew(s => !s); }}>{showNew ? '✕ Cancel' : '+ New Album'}</button>
+        </div>
       </div>
 
       {showNew && (
@@ -298,13 +340,14 @@ function GalleriesView() {
                 <input type="file" accept="image/*" hidden onChange={e => setCoverFile(e.target.files[0] || null)} />
               </label>
             </div>
+            <div className="gal-full"><label className="lbl">📧 Client email (for sending instructions)</label><input className="gal-input" value={f.client_email} onChange={e => setF({ ...f, client_email: e.target.value })} placeholder="client@email.com" /></div>
           </div>
 
           <div className="gal-pw-head">
             🔑 Access passwords
             <span className="gal-pw-tools">
-              <input className="gal-prefix" value={pwPrefix} onChange={e => setPwPrefix(e.target.value)} placeholder="guest prefix" title="Guest password prefix" />
-              <input className="gal-prefix" value={spwPrefix} onChange={e => setSpwPrefix(e.target.value)} placeholder="admin prefix" title="Admin password prefix" />
+              <input className="gal-prefix" value={pwPrefix} onChange={e => applyPrefix('guest', e.target.value)} placeholder="guest prefix" title="Guest password prefix" />
+              <input className="gal-prefix" value={spwPrefix} onChange={e => applyPrefix('admin', e.target.value)} placeholder="admin prefix" title="Admin password prefix" />
               <button className="gal-gen" onClick={genPasswords} title="Generate passwords">🎲 Auto</button>
             </span>
           </div>
@@ -315,9 +358,47 @@ function GalleriesView() {
             <div><label className="lbl">🔐 Admin password</label><input className="gal-input" value={f.admin_password} onChange={e => setF({ ...f, admin_password: e.target.value })} /></div>
           </div>
 
+          <div className="gal-toggles">
+            <label className="gal-toggle">
+              <input type="checkbox" checked={f.face_ai} onChange={e => setF({ ...f, face_ai: e.target.checked })} />
+              🤖 Face AI (guests find their photos by selfie)
+            </label>
+            <label className="gal-toggle">
+              <input type="checkbox" checked={f.exp_enabled} onChange={e => setF({ ...f, exp_enabled: e.target.checked })} />
+              ⏳ Gallery expiry
+            </label>
+          </div>
+          {f.exp_enabled && (
+            <div className="gal-grid gal-exp">
+              <div><label className="lbl">From date</label><input className="gal-input" type="date" value={f.exp_from_date} onChange={e => setF({ ...f, exp_from_date: e.target.value })} /></div>
+              <div><label className="lbl">Expires on</label><input className="gal-input" type="date" value={f.exp_date} onChange={e => setF({ ...f, exp_date: e.target.value })} /></div>
+              <div className="gal-full"><label className="lbl">Expiry note (shown to client)</label><input className="gal-input" value={f.exp_notes} onChange={e => setF({ ...f, exp_notes: e.target.value })} placeholder="Please download within 30 days" /></div>
+            </div>
+          )}
+
           <div className="gal-form-foot">
             <button className="refresh gal-save" onClick={create}>{edit ? '💾 Save changes' : '✅ Create album'}</button>
             {msg && <span className="gal-err">{msg}</span>}
+          </div>
+        </div>
+      )}
+
+      {showSettings && (
+        <div className="al-overlay" onClick={() => setShowSettings(false)}>
+          <div className="gal-set-modal" onClick={e => e.stopPropagation()}>
+            <div className="al-head">
+              <h3 className="al-title">⚙️ Gallery Settings</h3>
+              <button className="al-x" onClick={() => setShowSettings(false)}>✕</button>
+            </div>
+            <label className="lbl">🔑 Default password prefixes</label>
+            <div className="gal-set-prefixes">
+              <input className="gal-input" value={pwPrefix} onChange={e => setPwPrefix(e.target.value)} placeholder="Guest prefix (e.g. view)" />
+              <input className="gal-input" value={spwPrefix} onChange={e => setSpwPrefix(e.target.value)} placeholder="Admin prefix (e.g. admin)" />
+            </div>
+            <label className="lbl gal-set-lbl">📧 Email instructions template</label>
+            <div className="gal-set-hint">Placeholders: <code>{'{client_name}'}</code> <code>{'{guest_password}'}</code> <code>{'{admin_password}'}</code></div>
+            <textarea className="gal-input gal-set-ta" value={tpl} onChange={e => setTpl(e.target.value)} placeholder="Dear {client_name}, your photos are ready…" />
+            <button className="refresh gal-save gal-set-save" onClick={saveSettingsOnly}>💾 Save Settings</button>
           </div>
         </div>
       )}
@@ -339,9 +420,12 @@ function GalleriesView() {
                 <div className="gal-card-meta">
                   <span>📷 {a.photo_count}</span>
                   {a.selected_count > 0 && <span className="gal-picked">✅ {a.selected_count}</span>}
+                  {a.face_ai && <span title="Face AI on">🤖</span>}
+                  {a.exp_enabled && <span title="Expiry set">⏳</span>}
                 </div>
                 <div className="gal-card-actions">
                   <button className="gal-mini" onClick={e => { e.stopPropagation(); startEdit(a); }}>✏️ Edit</button>
+                  {a.client_email && <button className="gal-mini" onClick={e => { e.stopPropagation(); emailInstructions(a); }}>📧</button>}
                   <button className="gal-mini gal-mini-del" onClick={e => { e.stopPropagation(); del(a.id); }}>🗑️</button>
                 </div>
               </div>
