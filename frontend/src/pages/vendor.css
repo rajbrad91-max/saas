@@ -649,7 +649,7 @@
 .gal-mini-del:hover { border-color: #fb7185; background: #fb71850d; }
 @media (max-width: 560px){ .gal-grid { grid-template-columns: 1fr; } }
 
-/* 📸 Galleries — extra (settings, toggles, expiry) */
+/* 📸 Galleries — extra (settings) */
 .gal-head-btns { display: flex; gap: 8px; }
 .gal-set-btn { background: var(--panel-2); color: var(--text); }
 .gal-set-modal { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; width: 100%; max-width: 520px; padding: 22px 24px; }

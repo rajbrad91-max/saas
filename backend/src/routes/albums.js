@@ -138,8 +138,6 @@ Guest Password: {guest_password}
 Admin Password: {admin_password}
 (Use this to manage or remove photos)
 
-Your gallery is available for 30 days — please download and save your files.
-
 Thank you for choosing us! 💛`;
 
 // 🔒 upload/replace cover photo → webp 1200px
