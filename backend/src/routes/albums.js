@@ -35,13 +35,16 @@ router.get('/', requireAuth, async (req, res) => {
 router.post('/', requireAuth, async (req, res) => {
   const v = vid(req);
   if (!v) return res.status(400).json({ error: 'No vendor' });
-  const { title, category, guest_username, guest_password, admin_username, admin_password } = req.body;
+  const { title, category, guest_username, guest_password, admin_username, admin_password,
+    client_email, exp_enabled, exp_from_date, exp_date, exp_notes, face_ai } = req.body;
   if (!title) return res.status(400).json({ error: 'Title required' });
   try {
     const { rows } = await query(
-      `INSERT INTO albums (vendor_id, title, category, guest_username, guest_password, admin_username, admin_password)
-       VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
-      [v, title, category || null, guest_username || null, guest_password || null, admin_username || null, admin_password || null]);
+      `INSERT INTO albums (vendor_id, title, category, guest_username, guest_password, admin_username, admin_password,
+        client_email, exp_enabled, exp_from_date, exp_date, exp_notes, face_ai)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
+      [v, title, category || null, guest_username || null, guest_password || null, admin_username || null, admin_password || null,
+       client_email || null, !!exp_enabled, exp_from_date || null, exp_date || null, exp_notes || null, !!face_ai]);
     res.status(201).json({ album: rows[0] });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -59,23 +62,85 @@ router.get('/booking-options', requireAuth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// 🔒 update album (title, category, passwords)
+// 🔒 update album
+router.put('/settings', requireAuth, async (req, res) => {
+  const v = vid(req);
+  const { pw_prefix, spw_prefix, instructions_template } = req.body;
+  try {
+    await query(
+      `INSERT INTO album_settings (vendor_id, pw_prefix, spw_prefix, instructions_template)
+       VALUES ($1,$2,$3,$4)
+       ON CONFLICT (vendor_id) DO UPDATE SET pw_prefix=$2, spw_prefix=$3, instructions_template=$4`,
+      [v, pw_prefix || '', spw_prefix || '', instructions_template || null]);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// 🔒 album settings GET — per vendor
+router.get('/settings', requireAuth, async (req, res) => {
+  const v = vid(req);
+  try {
+    const { rows } = await query('SELECT pw_prefix, spw_prefix, instructions_template FROM album_settings WHERE vendor_id=$1', [v]);
+    res.json({ settings: rows[0] || { pw_prefix: '', spw_prefix: '', instructions_template: null } });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 router.put('/:id', requireAuth, async (req, res) => {
   const v = vid(req);
-  const { title, category, guest_username, guest_password, admin_username, admin_password } = req.body;
+  const { title, category, guest_username, guest_password, admin_username, admin_password,
+    client_email, exp_enabled, exp_from_date, exp_date, exp_notes, face_ai } = req.body;
   try {
     const { rows: own } = await query('SELECT id FROM albums WHERE id=$1 AND vendor_id=$2', [req.params.id, v]);
     if (!own[0]) return res.status(404).json({ error: 'Not found' });
     const { rows } = await query(
       `UPDATE albums SET
         title=COALESCE($1,title), category=$2,
-        guest_username=$3, guest_password=$4, admin_username=$5, admin_password=$6
-       WHERE id=$7 RETURNING *`,
+        guest_username=$3, guest_password=$4, admin_username=$5, admin_password=$6,
+        client_email=$7, exp_enabled=$8, exp_from_date=$9, exp_date=$10, exp_notes=$11, face_ai=$12
+       WHERE id=$13 RETURNING *`,
       [title || null, category || null, guest_username || null, guest_password || null,
-       admin_username || null, admin_password || null, req.params.id]);
+       admin_username || null, admin_password || null, client_email || null,
+       !!exp_enabled, exp_from_date || null, exp_date || null, exp_notes || null, !!face_ai, req.params.id]);
     res.json({ album: rows[0] });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
+
+// 🔒 email gallery instructions to client
+router.post('/:id/email-instructions', requireAuth, async (req, res) => {
+  const v = vid(req);
+  try {
+    const { rows } = await query('SELECT * FROM albums WHERE id=$1 AND vendor_id=$2', [req.params.id, v]);
+    const a = rows[0];
+    if (!a) return res.status(404).json({ error: 'Not found' });
+    if (!a.client_email) return res.status(400).json({ error: 'No client email on this album' });
+
+    const { rows: st } = await query('SELECT instructions_template FROM album_settings WHERE vendor_id=$1', [v]);
+    let body = (req.body.template ?? st[0]?.instructions_template) || DEFAULT_INSTRUCTIONS;
+    body = body
+      .replaceAll('{client_name}', a.title || 'Client')
+      .replaceAll('{admin_password}', a.admin_password || '')
+      .replaceAll('{guest_password}', a.guest_password || '');
+
+    const lead = { vendor_id: v, email: a.client_email, name: a.title };
+    const { sendLeadEmail } = await import('./email.js');
+    await sendLeadEmail(req, lead, 'Your Photos Are Ready 📸', body);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+const DEFAULT_INSTRUCTIONS = `Dear {client_name},
+
+Your photos are now ready to view and download! 🎉
+
+Guest Password: {guest_password}
+(Share this with friends and family)
+
+Admin Password: {admin_password}
+(Use this to manage or remove photos)
+
+Your gallery is available for 30 days — please download and save your files.
+
+Thank you for choosing us! 💛`;
 
 // 🔒 upload/replace cover photo → webp 1200px
 router.post('/:id/cover', requireAuth, upload.single('cover'), async (req, res) => {
