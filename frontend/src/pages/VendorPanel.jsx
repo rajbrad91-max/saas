@@ -798,7 +798,6 @@ function LeadDetail({ lead, onBack }) {
   const [gateway, setGateway] = useState(!!lead.gateway_enabled);
   const [pkgBusy, setPkgBusy] = useState(false);
   const [pkgMsg, setPkgMsg] = useState('');
-  const [showTimer, setShowTimer] = useState(false);
   const [timer, setTimer] = useState({
     enabled: !!lead.timer_enabled,
     hours: lead.timer_hours ?? 72,
@@ -934,9 +933,15 @@ function LeadDetail({ lead, onBack }) {
           {pkgs.map(p => <option key={p.id} value={p.id}>{p.tplName} → {p.name} (${Number(p.base_price).toFixed(0)})</option>)}
         </select>
         <div className="ld-btn-row">
-          <button className="refresh bx-primary" onClick={sendPackages} disabled={pkgBusy}>{pkgBusy ? 'Sending…' : '📤 Send Packages'}</button>
-          <button className={`refresh ld-gate ${gateway ? 'is-on' : ''}`} onClick={toggleGateway}>🔒 Secure Login {gateway ? 'ON' : 'OFF'}</button>
-          <button className={`refresh ld-gate ${timer.enabled ? 'is-on' : ''}`} onClick={() => setShowTimer(true)}>⏳ Offer Timer {timer.enabled ? 'ON' : 'OFF'}</button>
+          <button className="refresh bx-primary ld-btn-sm" onClick={sendPackages} disabled={pkgBusy}>{pkgBusy ? 'Sending…' : '📤 Send'}</button>
+          <button className={`refresh ld-gate ld-btn-sm ${gateway ? 'is-on' : ''}`} onClick={toggleGateway}>🔒 Login {gateway ? 'ON' : 'OFF'}</button>
+          <div className={`ld-timer-btn ${timer.enabled ? 'is-on' : ''}`}>
+            <button className="ld-timer-toggle" onClick={() => saveTimer({ enabled: !timer.enabled })}>⏳ Timer {timer.enabled ? 'ON' : 'OFF'}</button>
+            <input className="ld-timer-hrs" type="number" min="1" max="720" value={timer.hours}
+              onChange={e => setTimer(t => ({ ...t, hours: e.target.value }))}
+              onBlur={() => timer.enabled && saveTimer()} title="Offer valid (hours)" />
+            <span className="ld-timer-unit">h</span>
+          </div>
         </div>
         {timer.enabled && (
           <div className="ld-timer-status">
@@ -947,32 +952,6 @@ function LeadDetail({ lead, onBack }) {
         )}
         {pkgMsg && <div className={`ld-msg ${pkgMsg[0] === '⚠' ? 'is-err' : 'is-ok'} ld-msg-mt`}>{pkgMsg}</div>}
       </div>
-
-      {showTimer && (
-        <div className="al-overlay" onClick={() => setShowTimer(false)}>
-          <div className="tm-modal" onClick={e => e.stopPropagation()}>
-            <div className="al-head">
-              <h3 className="al-title">⏳ Offer Countdown</h3>
-              <button className="al-x" onClick={() => setShowTimer(false)}>✕</button>
-            </div>
-            <p className="tm-hint">Client sees a live countdown until the package offer expires. Starts automatically when you send packages.</p>
-
-            <label className="tm-switch-row" onClick={() => setTimer(t => ({ ...t, enabled: !t.enabled }))}>
-              <div className={`ms-switch ${timer.enabled ? 'is-on' : ''}`}><span className="ms-knob" /></div>
-              <span>Countdown {timer.enabled ? 'ON' : 'OFF'}</span>
-            </label>
-
-            <label className="ms-label tm-lbl">Offer valid for (hours)</label>
-            <input className="ms-input" type="number" min="1" max="720" value={timer.hours}
-              onChange={e => setTimer(t => ({ ...t, hours: e.target.value }))} />
-
-            <div className="tm-actions">
-              <button className="refresh bx-primary" onClick={() => { saveTimer(); setShowTimer(false); }}>💾 Save</button>
-              {timer.started_at && <button className="refresh" onClick={() => { saveTimer({ restart: true }); }}>🔄 Restart clock</button>}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* 💰 Payment */}
       <MoneySection lead={lead} />
