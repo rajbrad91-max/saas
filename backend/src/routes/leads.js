@@ -175,7 +175,30 @@ router.post('/:id/send-packages', requireAuth, async (req, res) => {
     const subject = 'Your packages are ready 🎉';
     const body = `Hi ${lead.name},\n\nView your custom packages and book here:\n${link}\n\nThank you!`;
     await sendLeadEmail(req, lead, subject, body);
+    // ⏳ auto-start the offer countdown if enabled and not yet started
+    if (lead.timer_enabled && !lead.timer_started_at) {
+      await query('UPDATE leads SET timer_started_at=NOW() WHERE id=$1', [lead.id]);
+    }
     res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ⏳ Save offer countdown settings (vendor sets hours + on/off)
+router.put('/:id/timer', requireAuth, async (req, res) => {
+  const vid = req.user.vendor_id;
+  const { enabled, hours, restart } = req.body;
+  try {
+    const { rows } = await query('SELECT vendor_id, timer_started_at FROM leads WHERE id=$1', [req.params.id]);
+    if (!rows[0]) return res.status(404).json({ error: 'Not found' });
+    if (req.user.role !== 'super_admin' && rows[0].vendor_id !== vid) return res.status(403).json({ error: 'Forbidden' });
+    const h = Math.min(Math.max(Number(hours) || 72, 1), 720);
+    // restart resets the clock; turning off clears the start
+    const started = restart ? 'NOW()' : (enabled ? 'timer_started_at' : 'NULL');
+    const { rows: up } = await query(
+      `UPDATE leads SET timer_enabled=$1, timer_hours=$2, timer_started_at=${started}, updated_at=NOW() WHERE id=$3
+       RETURNING timer_enabled, timer_hours, timer_started_at`,
+      [!!enabled, h, req.params.id]);
+    res.json(up[0]);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

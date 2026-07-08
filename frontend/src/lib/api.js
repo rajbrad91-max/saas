@@ -146,6 +146,7 @@ export const api = {
   restoreLead: (id) => request(`/leads/${id}/restore`, { method: 'POST' }),
   setGateway: (id, enabled) => request(`/leads/${id}/gateway`, { method: 'PUT', body: JSON.stringify({ enabled }) }),
   sendPackages: (id) => request(`/leads/${id}/send-packages`, { method: 'POST' }),
+  saveTimer: (id, data) => request(`/leads/${id}/timer`, { method: 'PUT', body: JSON.stringify(data) }),
   leadFlags: (id, data) => request(`/leads/${id}/flags`, { method: 'PUT', body: JSON.stringify(data) }),
   crew: () => request('/crew'),
   addCrew: (data) => request('/crew', { method: 'POST', body: JSON.stringify(data) }),

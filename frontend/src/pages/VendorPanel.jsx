@@ -797,7 +797,22 @@ function LeadDetail({ lead, onBack }) {
   const [gateway, setGateway] = useState(!!lead.gateway_enabled);
   const [pkgBusy, setPkgBusy] = useState(false);
   const [pkgMsg, setPkgMsg] = useState('');
+  const [showTimer, setShowTimer] = useState(false);
+  const [timer, setTimer] = useState({
+    enabled: !!lead.timer_enabled,
+    hours: lead.timer_hours ?? 72,
+    started_at: lead.timer_started_at || null,
+  });
   const set = (k, v) => setF(s => ({ ...s, [k]: v }));
+
+  async function saveTimer(opts = {}) {
+    const next = { enabled: timer.enabled, hours: Number(timer.hours) || 72, ...opts };
+    try {
+      const d = await api.saveTimer(lead.id, next);
+      setTimer({ enabled: d.timer_enabled, hours: d.timer_hours, started_at: d.timer_started_at });
+      setPkgMsg('✅ Timer saved'); setTimeout(() => setPkgMsg(''), 1500);
+    } catch (e) { setPkgMsg('⚠️ ' + e.message); }
+  }
 
   useEffect(() => {
     api.inquirySettings(lead.vendor_id).then(d => setCfg(d.settings)).catch(() => setCfg({}));
@@ -920,9 +935,43 @@ function LeadDetail({ lead, onBack }) {
         <div className="ld-btn-row">
           <button className="refresh bx-primary" onClick={sendPackages} disabled={pkgBusy}>{pkgBusy ? 'Sending…' : '📤 Send Packages'}</button>
           <button className={`refresh ld-gate ${gateway ? 'is-on' : ''}`} onClick={toggleGateway}>🔒 Secure Login {gateway ? 'ON' : 'OFF'}</button>
+          <button className={`refresh ld-gate ${timer.enabled ? 'is-on' : ''}`} onClick={() => setShowTimer(true)}>⏳ Offer Timer {timer.enabled ? 'ON' : 'OFF'}</button>
         </div>
+        {timer.enabled && (
+          <div className="ld-timer-status">
+            {timer.started_at
+              ? <>▶ Expires in <b>{expiryText(timer.started_at, timer.hours)}</b></>
+              : <>⚡ Starts when you send packages · <b>{timer.hours}h</b> window</>}
+          </div>
+        )}
         {pkgMsg && <div className={`ld-msg ${pkgMsg[0] === '⚠' ? 'is-err' : 'is-ok'} ld-msg-mt`}>{pkgMsg}</div>}
       </div>
+
+      {showTimer && (
+        <div className="al-overlay" onClick={() => setShowTimer(false)}>
+          <div className="tm-modal" onClick={e => e.stopPropagation()}>
+            <div className="al-head">
+              <h3 className="al-title">⏳ Offer Countdown</h3>
+              <button className="al-x" onClick={() => setShowTimer(false)}>✕</button>
+            </div>
+            <p className="tm-hint">Client sees a live countdown until the package offer expires. Starts automatically when you send packages.</p>
+
+            <label className="tm-switch-row" onClick={() => setTimer(t => ({ ...t, enabled: !t.enabled }))}>
+              <div className={`ms-switch ${timer.enabled ? 'is-on' : ''}`}><span className="ms-knob" /></div>
+              <span>Countdown {timer.enabled ? 'ON' : 'OFF'}</span>
+            </label>
+
+            <label className="ms-label tm-lbl">Offer valid for (hours)</label>
+            <input className="ms-input" type="number" min="1" max="720" value={timer.hours}
+              onChange={e => setTimer(t => ({ ...t, hours: e.target.value }))} />
+
+            <div className="tm-actions">
+              <button className="refresh bx-primary" onClick={() => { saveTimer(); setShowTimer(false); }}>💾 Save</button>
+              {timer.started_at && <button className="refresh" onClick={() => { saveTimer({ restart: true }); }}>🔄 Restart clock</button>}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 💰 Payment */}
       <MoneySection lead={lead} />
@@ -1019,6 +1068,19 @@ function ContractsBox({ lead }) {
 const STATUSES = ['new', 'quoted', 'booked'];
 const S_ICON = { new: '🆕', quoted: '📤', booked: '✅' };
 const S_LABEL = { new: 'New', quoted: 'Package Sent', booked: 'Booking Confirmed' };
+
+// ⏳ human "2d 4h" until offer expiry (or "expired")
+function expiryText(startedAt, hours) {
+  const end = new Date(startedAt).getTime() + (Number(hours) || 0) * 3600000;
+  const ms = end - Date.now();
+  if (ms <= 0) return 'expired';
+  const d = Math.floor(ms / 86400000);
+  const h = Math.floor((ms % 86400000) / 3600000);
+  const m = Math.floor((ms % 3600000) / 60000);
+  if (d > 0) return `${d}d ${h}h`;
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m`;
+}
 
 function MoneySection({ lead }) {
   const [data, setData] = useState(null);

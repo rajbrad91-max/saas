@@ -393,6 +393,15 @@
 .ld-gate.is-on { background: #4ade8022; color: #4ade80; }
 .ld-msg-mt { margin-top: 10px; }
 
+/* ⏳ offer timer */
+.ld-timer-status { font-size: 12px; color: var(--muted); margin-top: 8px; }
+.tm-modal { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; width: 100%; max-width: 400px; padding: 22px 24px; }
+.tm-hint { font-size: 12px; color: var(--muted); margin: 0 0 16px; line-height: 1.5; }
+.tm-switch-row { display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 14px; margin-bottom: 16px; }
+.tm-lbl { display: block; margin-bottom: 6px; }
+.tm-actions { display: flex; gap: 8px; margin-top: 18px; }
+.tm-actions .refresh { flex: 1; }
+
 /* 📦 Booking extras */
 .bx-wrap { margin-top: 20px; }
 .bx-h3 { margin: 0 0 10px; }
