@@ -216,7 +216,7 @@ function GalleriesView() {
   const [msg, setMsg] = useState('');
 
   function emptyAlbum() {
-    return { title: '', category: '', client_email: '', guest_username: '', guest_password: '', admin_username: '', admin_password: '', exp_enabled: false, exp_from_date: '', exp_date: '', exp_notes: '', face_ai: false };
+    return { title: '', category: '', client_email: '', guest_username: '', guest_password: '', admin_username: '', admin_password: '' };
   }
 
   useEffect(() => {
@@ -283,8 +283,6 @@ function GalleriesView() {
       title: a.title || '', category: a.category || '', client_email: a.client_email || '',
       guest_username: a.guest_username || '', guest_password: a.guest_password || '',
       admin_username: a.admin_username || '', admin_password: a.admin_password || '',
-      exp_enabled: !!a.exp_enabled, exp_from_date: a.exp_from_date ? String(a.exp_from_date).slice(0,10) : '',
-      exp_date: a.exp_date ? String(a.exp_date).slice(0,10) : '', exp_notes: a.exp_notes || '', face_ai: !!a.face_ai,
     });
     setCoverFile(null); setShowNew(true); setMsg('');
   }
@@ -358,24 +356,6 @@ function GalleriesView() {
             <div><label className="lbl">🔐 Admin password</label><input className="gal-input" value={f.admin_password} onChange={e => setF({ ...f, admin_password: e.target.value })} /></div>
           </div>
 
-          <div className="gal-toggles">
-            <label className="gal-toggle">
-              <input type="checkbox" checked={f.face_ai} onChange={e => setF({ ...f, face_ai: e.target.checked })} />
-              🤖 Face AI (guests find their photos by selfie)
-            </label>
-            <label className="gal-toggle">
-              <input type="checkbox" checked={f.exp_enabled} onChange={e => setF({ ...f, exp_enabled: e.target.checked })} />
-              ⏳ Gallery expiry
-            </label>
-          </div>
-          {f.exp_enabled && (
-            <div className="gal-grid gal-exp">
-              <div><label className="lbl">From date</label><input className="gal-input" type="date" value={f.exp_from_date} onChange={e => setF({ ...f, exp_from_date: e.target.value })} /></div>
-              <div><label className="lbl">Expires on</label><input className="gal-input" type="date" value={f.exp_date} onChange={e => setF({ ...f, exp_date: e.target.value })} /></div>
-              <div className="gal-full"><label className="lbl">Expiry note (shown to client)</label><input className="gal-input" value={f.exp_notes} onChange={e => setF({ ...f, exp_notes: e.target.value })} placeholder="Please download within 30 days" /></div>
-            </div>
-          )}
-
           <div className="gal-form-foot">
             <button className="refresh gal-save" onClick={create}>{edit ? '💾 Save changes' : '✅ Create album'}</button>
             {msg && <span className="gal-err">{msg}</span>}
@@ -420,8 +400,6 @@ function GalleriesView() {
                 <div className="gal-card-meta">
                   <span>📷 {a.photo_count}</span>
                   {a.selected_count > 0 && <span className="gal-picked">✅ {a.selected_count}</span>}
-                  {a.face_ai && <span title="Face AI on">🤖</span>}
-                  {a.exp_enabled && <span title="Expiry set">⏳</span>}
                 </div>
                 <div className="gal-card-actions">
                   <button className="gal-mini" onClick={e => { e.stopPropagation(); startEdit(a); }}>✏️ Edit</button>
@@ -442,31 +420,10 @@ function AlbumDetail({ albumId, onBack }) {
   const [photos, setPhotos] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [prog, setProg] = useState('');
-  const [indexing, setIndexing] = useState(false);
-  const [faceMsg, setFaceMsg] = useState('');
-  const [matchIds, setMatchIds] = useState(null); // null = show all, [] = filtered
   const token = localStorage.getItem('vowflo_token');
 
   useEffect(() => { load(); }, [albumId]);
   function load() { api.album(albumId).then(d => { setAlbum(d.album); setPhotos(d.photos || []); }).catch(() => {}); }
-
-  async function indexFaces() {
-    setIndexing(true); setFaceMsg('🧠 Scanning faces…');
-    try { const r = await api.indexFaces(albumId); setFaceMsg(`✅ Indexed ${r.indexed} photos · ${r.faces} faces`); }
-    catch (e) { setFaceMsg('⚠️ ' + e.message); }
-    finally { setIndexing(false); setTimeout(() => setFaceMsg(''), 4000); }
-  }
-  async function onSelfie(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-    setFaceMsg('🔍 Searching…');
-    try {
-      const r = await api.faceSearch(albumId, file);
-      setMatchIds(r.photo_ids);
-      setFaceMsg(`✅ Found ${r.matches} matching photos`);
-    } catch (err) { setFaceMsg('⚠️ ' + err.message); }
-    e.target.value = '';
-  }
 
   async function onFiles(e) {
     const files = e.target.files;
@@ -497,22 +454,13 @@ function AlbumDetail({ albumId, onBack }) {
         </label>
       </div>
 
-      <div style={{ display: 'flex', gap: 10, marginBottom: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-        <button className="refresh" onClick={indexFaces} disabled={indexing}>{indexing ? '🧠 Indexing…' : '🧠 Index Faces'}</button>
-        <label className="refresh" style={{ cursor: 'pointer' }}>
-          🤳 Search by Selfie
-          <input type="file" accept="image/*" hidden onChange={onSelfie} />
-        </label>
-        {matchIds !== null && <button className="refresh" onClick={() => { setMatchIds(null); setFaceMsg(''); }}>✕ Clear filter</button>}
-        {faceMsg && <span style={{ fontSize: 13, color: 'var(--muted)' }}>{faceMsg}</span>}
-      </div>
       {prog && <div style={{ marginBottom: 12, fontSize: 13, color: 'var(--muted)' }}>{prog}</div>}
 
       {photos.length === 0 ? (
         <div className="table-wrap" style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>No photos yet. Upload some 📤</div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(150px,1fr))', gap: 10 }}>
-          {photos.filter(p => matchIds === null || matchIds.includes(p.id)).map(p => (
+          {photos.map(p => (
             <div key={p.id} style={{ position: 'relative', borderRadius: 10, overflow: 'hidden', border: '1px solid var(--line)', aspectRatio: '1' }}>
               <img src={`${api.fileUrl(p.id, 'thumb')}?token=${token}`} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               {p.is_selected && <span style={{ position: 'absolute', top: 6, left: 6, background: '#2dd4bf', color: '#06231f', borderRadius: 20, fontSize: 10, fontWeight: 800, padding: '2px 7px' }}>✅ Picked</span>}
