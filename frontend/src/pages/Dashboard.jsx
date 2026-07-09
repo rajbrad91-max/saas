@@ -994,10 +994,18 @@ function FaceEngineSettings() {
   const [editing, setEditing] = useState(false);
   const [show, setShow] = useState(false);
   const [reMsg, setReMsg] = useState('');
+  const [qstat, setQstat] = useState(null);
   const box = { background: 'var(--panel-2)', border: '1px solid var(--line)', borderRadius: 8, color: 'var(--text)', padding: 9, width: '100%' };
   const roBox = { ...box, opacity: 0.7, cursor: 'not-allowed' };
 
   useEffect(() => { api.platformSettings().then(d => setS(d.settings || {})).catch(() => {}); }, []);
+  useEffect(() => {
+    let alive = true;
+    const tick = () => api.faceQueueStatus().then(d => { if (alive) setQstat(d); }).catch(() => {});
+    tick();
+    const iv = setInterval(tick, 5000); // live refresh every 5s
+    return () => { alive = false; clearInterval(iv); };
+  }, []);
   if (!s) return null;
 
   async function save(next) {
@@ -1022,7 +1030,13 @@ function FaceEngineSettings() {
     catch (e) { setReMsg('⚠️ ' + e.message); }
     setTimeout(() => setReMsg(''), 6000);
   }
-  const engine = s.face_engine || 'vladmandic';
+  const awsMode = s.aws_mode || 'aws_off';
+  const awsUsed = awsMode === 'aws_on' || awsMode === 'aws_safety_net';
+  const MODES = [
+    { k: 'aws_off', icon: '🖥️', title: 'Local only', desc: 'Free. Runs on your server. Adapts to traffic (1–2 photos at a time).' },
+    { k: 'aws_safety_net', icon: '🛟', title: 'Safety net', desc: 'Local normally — overflows to AWS only when photos pile up. Recommended.' },
+    { k: 'aws_on', icon: '☁️', title: 'AWS always', desc: 'Every album on AWS Rekognition. Fastest, ~$1 per 1000 photos.' },
+  ];
   // display value: masked unless editing+show
   const val = (k) => {
     if (!editing) return s[k] || '';
@@ -1034,24 +1048,34 @@ function FaceEngineSettings() {
     <>
       <div className="sa-section-title" style={{ marginTop: 22 }}>🧠 Face Recognition Engine</div>
       <div className="sa-box" style={{ padding: 18 }}>
-        {/* toggle */}
-        <div style={{ display: 'flex', gap: 0, background: 'var(--panel-2)', borderRadius: 10, padding: 4, width: 'fit-content', marginBottom: 16 }}>
-          {['vladmandic', 'aws'].map(opt => (
-            <button key={opt} onClick={() => save({ ...s, face_engine: opt })}
-              style={{ padding: '9px 22px', borderRadius: 7, cursor: 'pointer', fontWeight: 700, fontSize: 13, border: 'none',
-                background: engine === opt ? '#2dd4bf' : 'transparent',
-                color: engine === opt ? '#06231f' : 'var(--muted)' }}>
-              {opt === 'aws' ? '☁️ AWS Rekognition' : '🖥️ @vladmandic (free)'}
+
+        {/* 3-mode picker */}
+        <div className="fr-modes">
+          {MODES.map(m => (
+            <button key={m.k} className={`fr-mode ${awsMode === m.k ? 'on' : ''}`} onClick={() => save({ ...s, aws_mode: m.k })}>
+              <div className="fr-mode-top">{m.icon} {m.title}</div>
+              <div className="fr-mode-desc">{m.desc}</div>
             </button>
           ))}
         </div>
 
-        <div style={{ marginBottom: 16 }}>
+        {/* live queue status */}
+        {qstat && (
+          <div className="fr-status">
+            <span>📊 Backlog: <b>{qstat.backlog}</b></span>
+            <span>⚙️ CPU load: <b>{qstat.load}</b>/{qstat.cores}</span>
+            <span>🧵 Indexing: <b>{qstat.concurrency}</b> at a time</span>
+            <span>{qstat.overflowing ? '🛟 Overflowing to AWS' : (qstat.aws_mode === 'aws_on' ? '☁️ AWS' : '🖥️ Local')}</span>
+          </div>
+        )}
+
+        <div style={{ margin: '14px 0' }}>
           <button className="sa-btn-teal" style={{ padding: '7px 14px', fontSize: 12.5 }} onClick={reindex}>🔄 Re-index all photos</button>
           {reMsg && <span style={{ marginLeft: 10, fontSize: 12.5, color: 'var(--muted)' }}>{reMsg}</span>}
         </div>
 
-        {engine === 'aws' && (
+        {/* AWS credentials — shown whenever AWS may be used */}
+        {awsUsed && (
           <>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
               <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--muted)' }}>🔑 AWS Credentials</span>
@@ -1070,12 +1094,10 @@ function FaceEngineSettings() {
               <div><label className="lbl">AWS Secret Key</label><input style={editing ? box : roBox} readOnly={!editing} value={val('aws_secret_key')} onChange={e => setS({ ...s, aws_secret_key: e.target.value })} /></div>
               <div><label className="lbl">AWS Region</label><input style={editing ? box : roBox} readOnly={!editing} value={val('aws_region')} onChange={e => setS({ ...s, aws_region: e.target.value })} /></div>
             </div>
+            {awsMode === 'aws_safety_net' && <div style={{ marginTop: 8, fontSize: 12, color: 'var(--muted)' }}>💡 AWS only kicks in when the local backlog gets deep, then hands back automatically.</div>}
           </>
         )}
-        <div style={{ marginTop: 12, fontSize: 12.5, color: 'var(--muted)' }}>
-          {engine === 'aws' ? '☁️ Faster + more accurate. Costs ~$1 per 1000 photos.' : '🖥️ Free, runs on your server. Slower on large albums.'}
-          {msg && <span style={{ marginLeft: 10, color: '#4ade80' }}>{msg}</span>}
-        </div>
+        {msg && <div style={{ marginTop: 10, fontSize: 12.5, color: '#4ade80' }}>{msg}</div>}
       </div>
     </>
   );

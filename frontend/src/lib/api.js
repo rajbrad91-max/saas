@@ -57,6 +57,7 @@ export const api = {
   savePlatformSettings: (data) => request('/settings/platform', { method: 'PUT', body: JSON.stringify(data) }),
   revealAwsCreds: () => request('/settings/platform/reveal'),
   reindexAll: () => request('/settings/reindex-all', { method: 'POST' }),
+  faceQueueStatus: () => request('/face-queue/status'),
   vendorDetail: (id) => request(`/vendors/${id}/detail`),
   services: () => request('/services'),
   packages: () => request('/packages'),

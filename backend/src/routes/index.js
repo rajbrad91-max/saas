@@ -3,8 +3,15 @@ import geoip from 'geoip-lite';
 import { query } from '../config/db.js';
 import { requireAuth, requireSuperAdmin } from '../middleware/auth.js';
 import { getAllSettings, setSetting } from '../lib/settings.js';
+import { queueStatus } from '../lib/faceQueue.js';
 
 const router = express.Router();
+
+// 🧵 Super admin: live face-queue status (backlog, load, concurrency, aws mode)
+router.get('/face-queue/status', requireAuth, requireSuperAdmin, async (req, res) => {
+  try { res.json(await queueStatus()); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
 
 // 🔒 Super admin: platform settings (face engine + AWS creds)
 router.get('/settings/platform', requireAuth, requireSuperAdmin, async (req, res) => {
@@ -34,7 +41,7 @@ router.get('/settings/platform/reveal', requireAuth, requireSuperAdmin, async (r
 
 router.put('/settings/platform', requireAuth, requireSuperAdmin, async (req, res) => {
   try {
-    const allowed = ['face_engine', 'aws_access_key', 'aws_secret_key', 'aws_region'];
+    const allowed = ['face_engine', 'aws_mode', 'aws_access_key', 'aws_secret_key', 'aws_region'];
     for (const k of allowed) {
       if (req.body[k] !== undefined && req.body[k] !== '' && !String(req.body[k]).includes('••••')) {
         await setSetting(k, req.body[k]);

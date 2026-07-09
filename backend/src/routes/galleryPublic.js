@@ -199,7 +199,11 @@ router.post('/:token/selfie', upload.single('selfie'), async (req, res) => {
     if (!checkViewToken(req.query.vt, a.id)) { if (req.file) fs.unlink(req.file.path, () => {}); return res.status(401).json({ error: 'Unauthorized' }); }
     if (!req.file) return res.status(400).json({ error: 'No selfie' });
 
-    const engine = await getSetting('face_engine', 'vladmandic');
+    // 🔒 use the engine this album was actually indexed with (per-album lock).
+    // Fall back to the global default if older photos have no engine recorded.
+    const { rows: eng } = await query(
+      "SELECT face_engine FROM photos WHERE album_id=$1 AND face_indexed=true AND face_engine IS NOT NULL LIMIT 1", [a.id]);
+    const engine = eng[0]?.face_engine || await getSetting('face_engine', 'vladmandic');
     const { rows: photos } = await query('SELECT id, faces FROM photos WHERE album_id=$1 AND face_indexed=true AND face_count>0', [a.id]);
 
     let ids = [];
