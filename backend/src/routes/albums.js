@@ -1,5 +1,6 @@
 import express from 'express';
 import multer from 'multer';
+import crypto from 'crypto';
 import sharp from 'sharp';
 import fs from 'fs';
 import path from 'path';
@@ -39,12 +40,13 @@ router.post('/', requireAuth, async (req, res) => {
     client_email, exp_enabled, exp_from_date, exp_date, exp_notes, face_ai } = req.body;
   if (!title) return res.status(400).json({ error: 'Title required' });
   try {
+    const token = crypto.randomBytes(6).toString('hex'); // 12-char public share token
     const { rows } = await query(
       `INSERT INTO albums (vendor_id, title, category, guest_username, guest_password, admin_username, admin_password,
-        client_email, exp_enabled, exp_from_date, exp_date, exp_notes, face_ai)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
+        client_email, exp_enabled, exp_from_date, exp_date, exp_notes, face_ai, public_token)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING *`,
       [v, title, category || null, guest_username || null, guest_password || null, admin_username || null, admin_password || null,
-       client_email || null, !!exp_enabled, exp_from_date || null, exp_date || null, exp_notes || null, !!face_ai]);
+       client_email || null, !!exp_enabled, exp_from_date || null, exp_date || null, exp_notes || null, !!face_ai, token]);
     res.status(201).json({ album: rows[0] });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });

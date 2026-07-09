@@ -9,6 +9,7 @@ import InvoiceView from './pages/InvoiceView';
 import Certificate from './pages/Certificate';
 import ClientPortal from './pages/ClientPortal';
 import CrewCheckin from './pages/CrewCheckin';
+import PublicGallery from './pages/PublicGallery';
 import { getUser } from './lib/api';
 
 export default function App() {
@@ -38,6 +39,10 @@ export default function App() {
   // 👷 Crew check-in: /checkin/:token
   const ck = window.location.pathname.match(/^\/checkin\/([a-f0-9]+)/);
   if (ck) return <CrewCheckin token={ck[1]} />;
+
+  // 🖼️ Public client gallery: /g/:token
+  const g = window.location.pathname.match(/^\/g\/([a-z0-9]+)/i);
+  if (g) return <PublicGallery token={g[1]} />;
 
 
   if (user) {

@@ -213,6 +213,14 @@ function GalleriesView() {
   const [showSettings, setShowSettings] = useState(false);
   const [tpl, setTpl] = useState('');
   const [showPw, setShowPw] = useState({ guest: false, admin: false });
+  const [copiedUrl, setCopiedUrl] = useState(false);
+
+  function copyUrl(a) {
+    const url = `${window.location.origin}/g/${a.public_token}`;
+    navigator.clipboard.writeText(url).then(() => {
+      setCopiedUrl(true); setTimeout(() => setCopiedUrl(false), 2000);
+    }).catch(() => { prompt('Copy this gallery link:', url); });
+  }
   const [sendModal, setSendModal] = useState(null); // { album, email, body, editing }
   const [sendMsg, setSendMsg] = useState('');
   const [showSearch, setShowSearch] = useState(false);
@@ -410,6 +418,7 @@ function GalleriesView() {
           <div className="gal-form-foot">
             <button className="refresh gal-save" onClick={create}>{edit ? '💾 Save changes' : '✅ Create album'}</button>
             {edit && <button className="refresh gal-mini-send" onClick={() => openSend(edit)}>📧 Send Instructions</button>}
+            {edit?.public_token && <button className="refresh gal-copy-url" onClick={() => copyUrl(edit)}>{copiedUrl ? '✅ Copied!' : '🔗 Copy Gallery Link'}</button>}
             {msg && <span className="gal-err">{msg}</span>}
           </div>
         </div>
