@@ -995,6 +995,7 @@ function FaceEngineSettings() {
   const [show, setShow] = useState(false);
   const [reMsg, setReMsg] = useState('');
   const [qstat, setQstat] = useState(null);
+  const [credOpen, setCredOpen] = useState(false);
   const box = { background: 'var(--panel-2)', border: '1px solid var(--line)', borderRadius: 8, color: 'var(--text)', padding: 9, width: '100%' };
   const roBox = { ...box, opacity: 0.7, cursor: 'not-allowed' };
 
@@ -1074,28 +1075,36 @@ function FaceEngineSettings() {
           {reMsg && <span style={{ marginLeft: 10, fontSize: 12.5, color: 'var(--muted)' }}>{reMsg}</span>}
         </div>
 
-        {/* AWS credentials — shown whenever AWS may be used */}
+        {/* AWS credentials — collapsible, always masked until you choose to edit/show */}
         {awsUsed && (
-          <>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-              <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--muted)' }}>🔑 AWS Credentials</span>
-              {!editing ? (
-                <button className="sa-btn-teal" style={{ padding: '5px 12px', fontSize: 12 }} onClick={startEdit}>✏️ Edit</button>
-              ) : (
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <button className="sa-btn-teal" style={{ padding: '5px 12px', fontSize: 12 }} onClick={() => setShow(v => !v)}>{show ? '🙈 Hide' : '👁️ Show'}</button>
-                  <button className="sa-btn-teal" style={{ padding: '5px 12px', fontSize: 12 }} onClick={() => { save(s); stopEdit(); }}>💾 Save</button>
-                  <button style={{ padding: '5px 12px', fontSize: 12, background: 'var(--panel-2)', border: '1px solid var(--line)', borderRadius: 7, color: 'var(--text)', cursor: 'pointer' }} onClick={stopEdit}>✕</button>
+          <div className="fr-cred">
+            <button className="fr-cred-head" onClick={() => setCredOpen(o => !o)}>
+              <span>🔑 AWS Credentials</span>
+              <span className="fr-cred-chev">{credOpen ? '▲' : '▼'}</span>
+            </button>
+
+            {credOpen && (
+              <div className="fr-cred-body">
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 10 }}>
+                  {!editing ? (
+                    <button className="sa-btn-teal" style={{ padding: '5px 12px', fontSize: 12 }} onClick={startEdit}>✏️ Edit</button>
+                  ) : (
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button className="sa-btn-teal" style={{ padding: '5px 12px', fontSize: 12 }} onClick={() => setShow(v => !v)}>{show ? '🙈 Hide' : '👁️ Show'}</button>
+                      <button className="sa-btn-teal" style={{ padding: '5px 12px', fontSize: 12 }} onClick={() => { save(s); stopEdit(); }}>💾 Save</button>
+                      <button style={{ padding: '5px 12px', fontSize: 12, background: 'var(--panel-2)', border: '1px solid var(--line)', borderRadius: 7, color: 'var(--text)', cursor: 'pointer' }} onClick={stopEdit}>✕</button>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <div><label className="lbl">AWS Access Key</label><input style={editing ? box : roBox} readOnly={!editing} value={val('aws_access_key')} onChange={e => setS({ ...s, aws_access_key: e.target.value })} /></div>
-              <div><label className="lbl">AWS Secret Key</label><input style={editing ? box : roBox} readOnly={!editing} value={val('aws_secret_key')} onChange={e => setS({ ...s, aws_secret_key: e.target.value })} /></div>
-              <div><label className="lbl">AWS Region</label><input style={editing ? box : roBox} readOnly={!editing} value={val('aws_region')} onChange={e => setS({ ...s, aws_region: e.target.value })} /></div>
-            </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div><label className="lbl">AWS Access Key</label><input style={editing ? box : roBox} readOnly={!editing} value={val('aws_access_key')} onChange={e => setS({ ...s, aws_access_key: e.target.value })} /></div>
+                  <div><label className="lbl">AWS Secret Key</label><input style={editing ? box : roBox} readOnly={!editing} value={val('aws_secret_key')} onChange={e => setS({ ...s, aws_secret_key: e.target.value })} /></div>
+                  <div><label className="lbl">AWS Region</label><input style={editing ? box : roBox} readOnly={!editing} value={val('aws_region')} onChange={e => setS({ ...s, aws_region: e.target.value })} /></div>
+                </div>
+              </div>
+            )}
             {awsMode === 'aws_safety_net' && <div style={{ marginTop: 8, fontSize: 12, color: 'var(--muted)' }}>💡 AWS only kicks in when the local backlog gets deep, then hands back automatically.</div>}
-          </>
+          </div>
         )}
         {msg && <div style={{ marginTop: 10, fontSize: 12.5, color: '#4ade80' }}>{msg}</div>}
       </div>

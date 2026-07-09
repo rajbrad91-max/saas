@@ -215,3 +215,10 @@
 .fr-status { display: flex; flex-wrap: wrap; gap: 18px; padding: 11px 14px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; font-size: 12.5px; color: var(--muted); }
 .fr-status b { color: var(--text); }
 @media (max-width: 720px) { .fr-modes { grid-template-columns: 1fr; } }
+
+/* 🔑 Collapsible AWS credentials */
+.fr-cred { margin-top: 6px; }
+.fr-cred-head { display: flex; justify-content: space-between; align-items: center; width: 100%; background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 11px 14px; cursor: pointer; color: var(--muted); font-size: 13px; font-weight: 700; }
+.fr-cred-head:hover { border-color: #2dd4bf66; }
+.fr-cred-chev { font-size: 10px; color: var(--muted); }
+.fr-cred-body { padding: 14px 2px 4px; }
