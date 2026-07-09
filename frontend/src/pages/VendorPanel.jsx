@@ -216,6 +216,14 @@ function GalleriesView() {
   const [copiedUrl, setCopiedUrl] = useState(false);
   const [galleryToken, setGalleryToken] = useState('');
   const [copiedGallery, setCopiedGallery] = useState(false);
+  const [theme, setTheme] = useState({});
+  const [themeSaved, setThemeSaved] = useState(false);
+  const GAL_FONTS = ['Cormorant Garamond', 'Playfair Display', 'Jost', 'Montserrat', 'Poppins', 'Lora', 'Raleway', 'Georgia'];
+  function setT(k, val) { setTheme(t => ({ ...t, [k]: val })); }
+  async function saveTheme() {
+    try { await api.saveGalleryTheme(theme); setThemeSaved(true); setTimeout(() => setThemeSaved(false), 1800); }
+    catch (e) { alert('⚠️ ' + e.message); }
+  }
 
   function copyGalleryUrl() {
     const url = `${window.location.origin}/gallery/${galleryToken}`;
@@ -259,7 +267,7 @@ function GalleriesView() {
   }
 
   function emptyAlbum() {
-    return { title: '', category: '', client_email: '', guest_password: '', admin_password: '' };
+    return { title: '', category: '', client_email: '', guest_password: '', admin_password: '', gallery_mode: '' };
   }
 
   useEffect(() => {
@@ -271,6 +279,7 @@ function GalleriesView() {
       setTpl(s.instructions_template || '');
       setGalleryToken(s.gallery_token || '');
     }).catch(() => {});
+    api.galleryTheme().then(d => setTheme(d.theme || {})).catch(() => {});
   }, []);
   function load() { setLoading(true); api.albums().then(d => setAlbums(d.albums || [])).catch(() => {}).finally(() => setLoading(false)); }
 
@@ -320,6 +329,7 @@ function GalleriesView() {
     setF({
       title: a.title || '', category: a.category || '', client_email: a.client_email || '',
       guest_password: a.guest_password || '', admin_password: a.admin_password || '',
+      gallery_mode: a.gallery_mode || '',
     });
     setCoverFile(null); setShowNew(true); setMsg('');
   }
@@ -425,6 +435,13 @@ function GalleriesView() {
             </div>
           </div>
 
+          <label className="lbl gal-set-lbl">📐 Layout for this album</label>
+          <select className="gal-input gal-mode-sel" value={f.gallery_mode || ''} onChange={e => setF({ ...f, gallery_mode: e.target.value })}>
+            <option value="">Use default ({(theme.default_mode || 'per_event') === 'per_client' ? 'Per client' : 'Per event'})</option>
+            <option value="per_event">🗂️ Per event</option>
+            <option value="per_client">👤 Per client (all events in one)</option>
+          </select>
+
           <div className="gal-form-foot">
             <button className="refresh gal-save" onClick={create}>{edit ? '💾 Save changes' : '✅ Create album'}</button>
             {edit && <button className="refresh gal-mini-send" onClick={() => openSend(edit)}>📧 Send Instructions</button>}
@@ -436,27 +453,85 @@ function GalleriesView() {
 
       {showSettings && (
         <div className="al-overlay" onClick={() => setShowSettings(false)}>
-          <div className="gal-set-modal" onClick={e => e.stopPropagation()}>
+          <div className="gal-set-modal gal-set-modal-lg" onClick={e => e.stopPropagation()}>
             <div className="al-head">
               <h3 className="al-title">⚙️ Gallery Settings</h3>
               <button className="al-x" onClick={() => setShowSettings(false)}>✕</button>
             </div>
 
-            <label className="lbl">🔗 Full gallery link (all albums — embed on your website)</label>
-            <div className="gal-set-link">
-              <input className="gal-input" readOnly value={galleryToken ? `${window.location.origin}/gallery/${galleryToken}` : 'Loading…'} onFocus={e => e.target.select()} />
-              <button className="refresh gal-copy-url" onClick={copyGalleryUrl} disabled={!galleryToken}>{copiedGallery ? '✅ Copied!' : '🔗 Copy'}</button>
-            </div>
+            <div className="gal-set-cols">
+              <div className="gal-set-col">
+                <label className="lbl">🔗 Full gallery link (all albums — embed on your website)</label>
+                <div className="gal-set-link">
+                  <input className="gal-input" readOnly value={galleryToken ? `${window.location.origin}/gallery/${galleryToken}` : 'Loading…'} onFocus={e => e.target.select()} />
+                  <button className="refresh gal-copy-url" onClick={copyGalleryUrl} disabled={!galleryToken}>{copiedGallery ? '✅' : '🔗 Copy'}</button>
+                </div>
 
-            <label className="lbl gal-set-lbl">🔑 Default password prefixes</label>
-            <div className="gal-set-prefixes">
-              <input className="gal-input" value={pwPrefix} onChange={e => setPwPrefix(e.target.value)} placeholder="Guest prefix (e.g. view)" />
-              <input className="gal-input" value={spwPrefix} onChange={e => setSpwPrefix(e.target.value)} placeholder="Admin prefix (e.g. admin)" />
+                <label className="lbl gal-set-lbl">📐 Gallery layout (default for new albums)</label>
+                <div className="gal-mode-pick">
+                  <button className={`gal-mode ${(theme.default_mode || 'per_event') === 'per_event' ? 'on' : ''}`} onClick={() => setT('default_mode', 'per_event')}>
+                    🗂️ Per event<span>One album per event · separate logins</span>
+                  </button>
+                  <button className={`gal-mode ${theme.default_mode === 'per_client' ? 'on' : ''}`} onClick={() => setT('default_mode', 'per_client')}>
+                    👤 Per client<span>All events in one album · one login</span>
+                  </button>
+                </div>
+
+                <label className="lbl gal-set-lbl">🔑 Default password prefixes</label>
+                <div className="gal-set-prefixes">
+                  <input className="gal-input" value={pwPrefix} onChange={e => setPwPrefix(e.target.value)} placeholder="Guest prefix" />
+                  <input className="gal-input" value={spwPrefix} onChange={e => setSpwPrefix(e.target.value)} placeholder="Admin prefix" />
+                </div>
+
+                <label className="lbl gal-set-lbl">📧 Email instructions template</label>
+                <div className="gal-set-hint">Placeholders: <code>{'{client_name}'}</code> <code>{'{guest_password}'}</code> <code>{'{admin_password}'}</code></div>
+                <textarea className="gal-input gal-set-ta" value={tpl} onChange={e => setTpl(e.target.value)} placeholder="Dear {client_name}, your photos are ready…" />
+                <button className="refresh gal-save gal-set-save" onClick={saveSettingsOnly}>💾 Save Settings</button>
+              </div>
+
+              <div className="gal-set-col">
+                <div className="gal-theme-head">🎨 Client page style</div>
+                <div className="gal-set-hint">Fonts, colours &amp; text for your public gallery page</div>
+
+                <div className="gal-set-prefixes gal-theme-fonts">
+                  <div><label className="lbl">Heading font</label>
+                    <select className="gal-input" value={theme.heading_font || 'Playfair Display'} onChange={e => setT('heading_font', e.target.value)}>
+                      {GAL_FONTS.map(f => <option key={f} value={f}>{f}</option>)}
+                    </select>
+                  </div>
+                  <div><label className="lbl">Body font</label>
+                    <select className="gal-input" value={theme.body_font || 'Jost'} onChange={e => setT('body_font', e.target.value)}>
+                      {GAL_FONTS.map(f => <option key={f} value={f}>{f}</option>)}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="gal-theme-colors">
+                  {[['bg_color', 'Background', '#0f1115'], ['heading_color', 'Heading', '#f3f4f6'], ['accent_color', 'Accent', '#2dd4bf'], ['sub_color', 'Subtitle', '#9ca3af']].map(([k, lbl, def]) => (
+                    <div key={k} className="gal-color-row">
+                      <input type="color" className="gal-color" value={theme[k] || def} onChange={e => setT(k, e.target.value)} />
+                      <span>{lbl}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <label className="lbl gal-set-lbl">Kicker / title text</label>
+                <input className="gal-input" value={theme.title_text ?? ''} onChange={e => setT('title_text', e.target.value)} placeholder="Client Galleries" />
+                <label className="lbl gal-set-lbl">Subtitle</label>
+                <input className="gal-input" value={theme.subtitle_text ?? ''} onChange={e => setT('subtitle_text', e.target.value)} placeholder="Secure, Password-Protected Memories" />
+                <label className="lbl gal-set-lbl">Tagline</label>
+                <input className="gal-input" value={theme.tagline_text ?? ''} onChange={e => setT('tagline_text', e.target.value)} placeholder="Ready to view, share and download." />
+
+                {/* live preview */}
+                <div className="gal-theme-preview" style={{ background: theme.bg_color || '#0f1115' }}>
+                  <div style={{ textTransform: 'uppercase', letterSpacing: 3, fontSize: 10, color: theme.accent_color || '#2dd4bf', fontFamily: `'${theme.body_font || 'Jost'}',sans-serif` }}>{theme.title_text || 'Client Galleries'}</div>
+                  <div style={{ fontFamily: `'${theme.heading_font || 'Playfair Display'}',serif`, fontSize: 22, color: theme.heading_color || '#f3f4f6', margin: '4px 0' }}>Your Studio Name</div>
+                  <div style={{ fontSize: 12, color: theme.sub_color || '#9ca3af', fontFamily: `'${theme.body_font || 'Jost'}',sans-serif` }}>{theme.subtitle_text || 'Secure, Password-Protected Memories'}</div>
+                </div>
+
+                <button className="refresh gal-save gal-set-save" onClick={saveTheme}>{themeSaved ? '✅ Saved!' : '🎨 Save Style'}</button>
+              </div>
             </div>
-            <label className="lbl gal-set-lbl">📧 Email instructions template</label>
-            <div className="gal-set-hint">Placeholders: <code>{'{client_name}'}</code> <code>{'{guest_password}'}</code> <code>{'{admin_password}'}</code></div>
-            <textarea className="gal-input gal-set-ta" value={tpl} onChange={e => setTpl(e.target.value)} placeholder="Dear {client_name}, your photos are ready…" />
-            <button className="refresh gal-save gal-set-save" onClick={saveSettingsOnly}>💾 Save Settings</button>
           </div>
         </div>
       )}

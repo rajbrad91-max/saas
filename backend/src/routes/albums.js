@@ -90,10 +90,42 @@ router.get('/settings', requireAuth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+const THEME_DEFAULTS = {
+  heading_font: 'Playfair Display', body_font: 'Jost',
+  bg_color: '#0f1115', heading_color: '#f3f4f6', accent_color: '#2dd4bf', sub_color: '#9ca3af',
+  title_text: 'Client Galleries', subtitle_text: 'Secure, Password-Protected Memories',
+  tagline_text: 'Ready to view, share and download.', default_mode: 'per_event',
+};
+
+// 🎨 gallery theme GET — per vendor
+router.get('/theme', requireAuth, async (req, res) => {
+  const v = vid(req);
+  try {
+    const { rows } = await query('SELECT * FROM gallery_theme WHERE vendor_id=$1', [v]);
+    res.json({ theme: rows[0] || { ...THEME_DEFAULTS } });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// 🎨 gallery theme PUT — per vendor
+router.put('/theme', requireAuth, async (req, res) => {
+  const v = vid(req);
+  const t = { ...THEME_DEFAULTS, ...req.body };
+  try {
+    await query(
+      `INSERT INTO gallery_theme (vendor_id, heading_font, body_font, bg_color, heading_color, accent_color, sub_color, title_text, subtitle_text, tagline_text, default_mode)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+       ON CONFLICT (vendor_id) DO UPDATE SET
+         heading_font=$2, body_font=$3, bg_color=$4, heading_color=$5, accent_color=$6, sub_color=$7,
+         title_text=$8, subtitle_text=$9, tagline_text=$10, default_mode=$11`,
+      [v, t.heading_font, t.body_font, t.bg_color, t.heading_color, t.accent_color, t.sub_color, t.title_text, t.subtitle_text, t.tagline_text, t.default_mode]);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 router.put('/:id', requireAuth, async (req, res) => {
   const v = vid(req);
   const { title, category, guest_username, guest_password, admin_username, admin_password,
-    client_email, exp_enabled, exp_from_date, exp_date, exp_notes, face_ai } = req.body;
+    client_email, exp_enabled, exp_from_date, exp_date, exp_notes, face_ai, gallery_mode } = req.body;
   try {
     const { rows: own } = await query('SELECT id FROM albums WHERE id=$1 AND vendor_id=$2', [req.params.id, v]);
     if (!own[0]) return res.status(404).json({ error: 'Not found' });
@@ -101,11 +133,13 @@ router.put('/:id', requireAuth, async (req, res) => {
       `UPDATE albums SET
         title=COALESCE($1,title), category=$2,
         guest_username=$3, guest_password=$4, admin_username=$5, admin_password=$6,
-        client_email=$7, exp_enabled=$8, exp_from_date=$9, exp_date=$10, exp_notes=$11, face_ai=$12
-       WHERE id=$13 RETURNING *`,
+        client_email=$7, exp_enabled=$8, exp_from_date=$9, exp_date=$10, exp_notes=$11, face_ai=$12,
+        gallery_mode=$13
+       WHERE id=$14 RETURNING *`,
       [title || null, category || null, guest_username || null, guest_password || null,
        admin_username || null, admin_password || null, client_email || null,
-       !!exp_enabled, exp_from_date || null, exp_date || null, exp_notes || null, !!face_ai, req.params.id]);
+       !!exp_enabled, exp_from_date || null, exp_date || null, exp_notes || null, !!face_ai,
+       gallery_mode || null, req.params.id]);
     res.json({ album: rows[0] });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -236,8 +270,30 @@ router.post('/:id/photos', requireAuth, upload.array('photos', 50), async (req, 
       saved.push(rows[0]);
     }
     res.status(201).json({ uploaded: saved.length, photos: saved });
+    // 🤳 auto-index faces in the background (non-blocking) right after upload
+    indexAlbumFaces(req.params.id).catch(() => {});
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
+
+// 🤳 shared face-indexing worker (used by upload auto-index + manual endpoint)
+async function indexAlbumFaces(albumId) {
+  const { rows: photos } = await query(
+    'SELECT id, preview_path FROM photos WHERE album_id=$1 AND face_indexed=false', [albumId]);
+  if (!photos.length) return { indexed: 0, faces: 0 };
+  const engine = await getSetting('face_engine', 'vladmandic');
+  let done = 0, faces = 0;
+  for (const p of photos) {
+    try {
+      const full = path.join(ROOT, p.preview_path);
+      if (!fs.existsSync(full)) continue;
+      const found = engine === 'aws' ? await getFaceDescriptorsAWS(full) : await getFaceDescriptors(full);
+      await query('UPDATE photos SET faces=$1, face_count=$2, face_indexed=true WHERE id=$3',
+        [JSON.stringify(found), found.length, p.id]);
+      done++; faces += found.length;
+    } catch (e) { /* skip bad image */ }
+  }
+  return { indexed: done, faces, engine };
+}
 
 // 🔒 delete a photo (tenant-checked)
 router.delete('/:id/photos/:photoId', requireAuth, async (req, res) => {

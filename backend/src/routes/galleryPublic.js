@@ -2,11 +2,27 @@ import express from 'express';
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
+import multer from 'multer';
 import { createRequire } from 'module';
 import { query } from '../config/db.js';
+import { getFaceDescriptors, findMatches } from '../lib/faceEngine.js';
+import { getFaceDescriptorsAWS, findMatchesAWS } from '../lib/faceAWS.js';
+import { getSetting } from '../lib/settings.js';
 
 const require = createRequire(import.meta.url);
 const archiver = require('archiver');
+const upload = multer({ dest: '/tmp/vowflo-selfie' });
+
+const THEME_DEFAULTS = {
+  heading_font: 'Playfair Display', body_font: 'Jost',
+  bg_color: '#0f1115', heading_color: '#f3f4f6', accent_color: '#2dd4bf', sub_color: '#9ca3af',
+  title_text: 'Client Galleries', subtitle_text: 'Secure, Password-Protected Memories',
+  tagline_text: 'Ready to view, share and download.', default_mode: 'per_event',
+};
+async function getTheme(vendorId) {
+  const { rows } = await query('SELECT * FROM gallery_theme WHERE vendor_id=$1', [vendorId]);
+  return rows[0] || { ...THEME_DEFAULTS };
+}
 
 const router = express.Router();
 const ROOT = '/var/www/vowflo/storage/galleries';
@@ -44,6 +60,7 @@ router.get('/vendor/:token', async (req, res) => {
        FROM albums a WHERE a.vendor_id=$1 ORDER BY a.created_at DESC NULLS LAST, a.id DESC`, [v[0].id]);
     res.json({
       vendor: { name: v[0].business_name },
+      theme: await getTheme(v[0].id),
       albums: albums.map(a => ({ token: a.public_token, title: a.title, category: a.category, cover: !!a.cover_photo, photo_count: a.photo_count })),
     });
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -64,7 +81,9 @@ router.get('/:token', async (req, res) => {
     const a = await findAlbum(req.params.token);
     if (!a) return res.status(404).json({ error: 'Gallery not found' });
     const { rows: c } = await query('SELECT COUNT(*)::int AS n FROM photos WHERE album_id=$1', [a.id]);
-    res.json({ album: { title: a.title, category: a.category, cover: !!a.cover_photo, photo_count: c[0].n, id: a.id, token: a.public_token } });
+    const theme = await getTheme(a.vendor_id);
+    const mode = a.gallery_mode || theme.default_mode || 'per_event';
+    res.json({ album: { title: a.title, category: a.category, cover: !!a.cover_photo, photo_count: c[0].n, id: a.id, token: a.public_token, mode }, theme });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -90,9 +109,21 @@ router.post('/:token/auth', async (req, res) => {
     else if (a.guest_password && pw === a.guest_password) role = 'guest';
     if (!role) return res.status(401).json({ error: 'Wrong password' });
 
-    const { rows: photos } = await query('SELECT id, filename FROM photos WHERE album_id=$1 ORDER BY id', [a.id]);
+    const { rows: photos } = await query('SELECT id, filename, event_id, face_count FROM photos WHERE album_id=$1 ORDER BY id', [a.id]);
+    const theme = await getTheme(a.vendor_id);
+    const mode = a.gallery_mode || theme.default_mode || 'per_event';
+    // per-client mode: group photos under events
+    let events = [];
+    if (mode === 'per_client') {
+      const { rows: ev } = await query('SELECT id, name FROM album_events WHERE album_id=$1 ORDER BY sort_order, id', [a.id]);
+      events = ev;
+    }
+    const faceReady = photos.some(p => (p.face_count || 0) > 0);
     const vt = makeViewToken(a.id, role);
-    res.json({ role, vt, title: a.title, photos: photos.map(p => ({ id: p.id, name: p.filename })) });
+    res.json({
+      role, vt, title: a.title, mode, theme, events, faceReady,
+      photos: photos.map(p => ({ id: p.id, name: p.filename, event_id: p.event_id, faces: p.face_count || 0 })),
+    });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -127,16 +158,27 @@ router.get('/:token/download/:photoId', async (req, res) => {
   } catch { res.status(404).end(); }
 });
 
-// ⬇️ download ALL as zip
+// ⬇️ download ALL as zip (optionally one event via ?event=ID)
 router.get('/:token/download-all', async (req, res) => {
   try {
     const a = await findAlbum(req.params.token);
     if (!a) return res.status(404).end();
     if (!checkViewToken(req.query.vt, a.id)) return res.status(401).end();
-    const { rows: photos } = await query('SELECT * FROM photos WHERE album_id=$1 ORDER BY id', [a.id]);
+
+    const eventId = req.query.event ? parseInt(req.query.event, 10) : null;
+    let photos, zipLabel = a.title || 'gallery';
+    if (eventId) {
+      const r = await query('SELECT * FROM photos WHERE album_id=$1 AND event_id=$2 ORDER BY id', [a.id, eventId]);
+      photos = r.rows;
+      const ev = await query('SELECT name FROM album_events WHERE id=$1 AND album_id=$2', [eventId, a.id]);
+      if (ev.rows[0]) zipLabel = `${a.title}-${ev.rows[0].name}`;
+    } else {
+      const r = await query('SELECT * FROM photos WHERE album_id=$1 ORDER BY id', [a.id]);
+      photos = r.rows;
+    }
     if (!photos.length) return res.status(404).json({ error: 'No photos' });
 
-    const safe = (a.title || 'gallery').replace(/[^a-z0-9]+/gi, '-').toLowerCase();
+    const safe = zipLabel.replace(/[^a-z0-9]+/gi, '-').toLowerCase();
     res.attachment(`${safe}.zip`);
     const archive = archiver('zip', { zlib: { level: 6 } });
     archive.on('error', () => { try { res.status(500).end(); } catch {} });
@@ -147,6 +189,39 @@ router.get('/:token/download-all', async (req, res) => {
     }
     archive.finalize();
   } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// 🤳 selfie search → returns matching photo IDs (public, needs view token)
+router.post('/:token/selfie', upload.single('selfie'), async (req, res) => {
+  try {
+    const a = await findAlbum(req.params.token);
+    if (!a) return res.status(404).json({ error: 'Not found' });
+    if (!checkViewToken(req.query.vt, a.id)) { if (req.file) fs.unlink(req.file.path, () => {}); return res.status(401).json({ error: 'Unauthorized' }); }
+    if (!req.file) return res.status(400).json({ error: 'No selfie' });
+
+    const engine = await getSetting('face_engine', 'vladmandic');
+    const { rows: photos } = await query('SELECT id, faces FROM photos WHERE album_id=$1 AND face_indexed=true AND face_count>0', [a.id]);
+
+    let ids = [];
+    if (engine === 'aws') {
+      const candidates = [];
+      for (const p of photos) for (const f of (p.faces || [])) { if (f.imgB64) { candidates.push({ photo_id: p.id, imgB64: f.imgB64 }); break; } }
+      const matches = await findMatchesAWS(req.file.path, candidates, 90);
+      fs.unlink(req.file.path, () => {});
+      const seen = new Set();
+      for (const m of matches) if (!seen.has(m.photo_id)) { seen.add(m.photo_id); ids.push(m.photo_id); }
+    } else {
+      const q = await getFaceDescriptors(req.file.path);
+      fs.unlink(req.file.path, () => {});
+      if (!q.length) return res.status(400).json({ error: 'No face detected in your selfie — try another photo' });
+      const candidates = [];
+      for (const p of photos) for (const f of (p.faces || [])) if (f.descriptor) candidates.push({ photo_id: p.id, descriptor: f.descriptor });
+      const matches = findMatches(q[0].descriptor, candidates, 0.5);
+      const seen = new Set();
+      for (const m of matches) if (!seen.has(m.photo_id)) { seen.add(m.photo_id); ids.push(m.photo_id); }
+    }
+    res.json({ matches: ids.length, photo_ids: ids });
+  } catch (e) { if (req.file) fs.unlink(req.file.path, () => {}); res.status(500).json({ error: e.message }); }
 });
 
 export default router;
