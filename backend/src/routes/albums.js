@@ -9,6 +9,7 @@ import { query } from '../config/db.js';
 import { requireAuth } from '../middleware/auth.js';
 import { getFaceDescriptors, findMatches } from '../lib/faceEngine.js';
 import { getFaceDescriptorsAWS, findMatchesAWS } from '../lib/faceAWS.js';
+import { enqueueAlbum, indexAlbumNow } from '../lib/faceQueue.js';
 import { getSetting } from '../lib/settings.js';
 
 const router = express.Router();
@@ -307,30 +308,10 @@ router.post('/:id/photos', requireAuth, upload.array('photos', 50), async (req, 
       saved.push(rows[0]);
     }
     res.status(201).json({ uploaded: saved.length, photos: saved });
-    // 🤳 auto-index faces in the background (non-blocking) right after upload
-    indexAlbumFaces(req.params.id).catch(() => {});
+    // 🤳 queue face indexing (throttled single worker — never blocks the API)
+    enqueueAlbum(req.params.id);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
-
-// 🤳 shared face-indexing worker (used by upload auto-index + manual endpoint)
-async function indexAlbumFaces(albumId) {
-  const { rows: photos } = await query(
-    'SELECT id, preview_path FROM photos WHERE album_id=$1 AND face_indexed=false', [albumId]);
-  if (!photos.length) return { indexed: 0, faces: 0 };
-  const engine = await getSetting('face_engine', 'vladmandic');
-  let done = 0, faces = 0;
-  for (const p of photos) {
-    try {
-      const full = path.join(ROOT, p.preview_path);
-      if (!fs.existsSync(full)) continue;
-      const found = engine === 'aws' ? await getFaceDescriptorsAWS(full) : await getFaceDescriptors(full);
-      await query('UPDATE photos SET faces=$1, face_count=$2, face_indexed=true WHERE id=$3',
-        [JSON.stringify(found), found.length, p.id]);
-      done++; faces += found.length;
-    } catch (e) { /* skip bad image */ }
-  }
-  return { indexed: done, faces, engine };
-}
 
 // 🔒 delete a photo (tenant-checked)
 router.delete('/:id/photos/:photoId', requireAuth, async (req, res) => {
@@ -366,23 +347,9 @@ router.post('/:id/index-faces', requireAuth, async (req, res) => {
   try {
     const { rows: a } = await query('SELECT id FROM albums WHERE id=$1 AND vendor_id=$2', [req.params.id, v]);
     if (!a[0]) return res.status(404).json({ error: 'Album not found' });
-
-    const { rows: photos } = await query(
-      'SELECT id, preview_path FROM photos WHERE album_id=$1 AND face_indexed=false', [req.params.id]);
-
-    const engine = await getSetting('face_engine', 'vladmandic');
-    let done = 0, faces = 0;
-    for (const p of photos) {
-      try {
-        const full = path.join(ROOT, p.preview_path);
-        if (!fs.existsSync(full)) continue;
-        const found = engine === 'aws' ? await getFaceDescriptorsAWS(full) : await getFaceDescriptors(full);
-        await query('UPDATE photos SET faces=$1, face_count=$2, face_indexed=true WHERE id=$3',
-          [JSON.stringify(found), found.length, p.id]);
-        done++; faces += found.length;
-      } catch (e) { /* skip bad image */ }
-    }
-    res.json({ indexed: done, faces, remaining: photos.length - done, engine });
+    // run one throttled pass via the shared queue worker (single-worker, yields between photos)
+    const r = await indexAlbumNow(req.params.id);
+    res.json({ requested: r.requested, remaining: r.remaining });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
