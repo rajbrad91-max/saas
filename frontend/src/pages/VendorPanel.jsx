@@ -370,7 +370,12 @@ function GalleriesView() {
 
           <div className="gal-grid">
             <div className="gal-full"><label className="lbl">Gallery Name *</label><input className="gal-input" value={f.title} onChange={e => setF({ ...f, title: e.target.value })} placeholder="Susan & Mike Wedding" /></div>
-            <div><label className="lbl">Category</label><input className="gal-input" value={f.category} onChange={e => setF({ ...f, category: e.target.value })} placeholder="Wedding" /></div>
+            <div><label className="lbl">Category</label>
+              <input className="gal-input" list="gal-cat-list" value={f.category} onChange={e => setF({ ...f, category: e.target.value })} placeholder="Wedding" />
+              <datalist id="gal-cat-list">
+                {['Wedding', 'Engagement', 'Pre-Wedding', 'Reception', 'Birthday', 'Portrait', 'Event', 'Other'].map(c => <option key={c} value={c} />)}
+              </datalist>
+            </div>
             <div>
               <label className="lbl">🖼️ Cover photo</label>
               <label className="gal-cover-btn">
