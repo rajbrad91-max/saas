@@ -214,8 +214,31 @@ function GalleriesView() {
   const [tpl, setTpl] = useState('');
   const [sendModal, setSendModal] = useState(null); // { album, email, body, editing }
   const [sendMsg, setSendMsg] = useState('');
+  const [showSearch, setShowSearch] = useState(false);
+  const [search, setSearch] = useState('');
+  const [selectMode, setSelectMode] = useState(false);
+  const [checked, setChecked] = useState([]);
   const [f, setF] = useState(emptyAlbum());
   const [msg, setMsg] = useState('');
+
+  // 🗑️ bin click: enter select mode → delete when items checked → exit when none
+  function onBinClick() {
+    if (!selectMode) { setSelectMode(true); return; }
+    if (checked.length) { deleteChecked(); return; }
+    setSelectMode(false);
+  }
+  async function deleteChecked() {
+    if (!checked.length) return;
+    if (!confirm(`Delete ${checked.length} album(s) and all their photos? This can't be undone.`)) return;
+    try {
+      for (const id of checked) { await api.deleteAlbum(id); }
+      setChecked([]); setSelectMode(false); load();
+    } catch (e) { alert('⚠️ ' + e.message); }
+  }
+  function toggleCheck(id, e) {
+    e.stopPropagation();
+    setChecked(c => c.includes(id) ? c.filter(x => x !== id) : [...c, id]);
+  }
 
   function emptyAlbum() {
     return { title: '', category: '', client_email: '', guest_password: '', admin_password: '' };
@@ -323,10 +346,16 @@ function GalleriesView() {
       <div className="gal-head">
         <h2 className="gal-title">📸 Galleries</h2>
         <div className="gal-head-btns">
-          <button className="refresh gal-set-btn" onClick={() => setShowSettings(true)}>⚙️ Settings</button>
-          <button className="refresh gal-new-btn" onClick={() => { if (showNew) resetForm(); setShowNew(s => !s); }}>{showNew ? '✕ Cancel' : '+ New Album'}</button>
+          <button className="lead-ic-btn" onClick={() => { if (showNew) resetForm(); setShowNew(s => !s); }} title={showNew ? 'Cancel' : 'New album'}>{showNew ? '✕' : '➕'}</button>
+          <button className={`lead-ic-btn ${showSearch ? 'is-on' : ''}`} onClick={() => { setShowSearch(s => !s); setSearch(''); }} title="Search albums">🔍</button>
+          <button className={`lead-ic-btn lead-ic-del ${selectMode ? 'is-on' : ''}`} onClick={onBinClick} title={selectMode ? (checked.length ? `Delete ${checked.length}` : 'Cancel select') : 'Select to delete'}>{selectMode && checked.length ? `🗑️ ${checked.length}` : '🗑️'}</button>
+          <button className="lead-ic-btn" onClick={() => setShowSettings(true)} title="Settings">⚙️</button>
         </div>
       </div>
+
+      {showSearch && (
+        <input className="lead-search" autoFocus placeholder="🔍 Search albums by name or category…" value={search} onChange={e => setSearch(e.target.value)} />
+      )}
 
       {showNew && (
         <div className="table-wrap gal-form">
@@ -394,12 +423,20 @@ function GalleriesView() {
         </div>
       )}
 
-      {albums.length === 0 ? (
-        <div className="table-wrap gal-empty">No albums yet. Create your first one 📸</div>
-      ) : (
+      {(() => {
+        const q = search.trim().toLowerCase();
+        const shown = q ? albums.filter(a => (a.title || '').toLowerCase().includes(q) || (a.category || '').toLowerCase().includes(q)) : albums;
+        if (albums.length === 0) return <div className="table-wrap gal-empty">No albums yet. Create your first one 📸</div>;
+        if (shown.length === 0) return <div className="table-wrap gal-empty">No albums match “{search}” 🔍</div>;
+        return (
         <div className="gal-cards">
-          {albums.map(a => (
-            <div key={a.id} className="table-wrap gal-card" onClick={() => setOpen(a.id)}>
+          {shown.map(a => (
+            <div key={a.id} className={`table-wrap gal-card ${selectMode && checked.includes(a.id) ? 'gal-card-sel' : ''}`} onClick={() => { if (selectMode) toggleCheck(a.id, { stopPropagation() {} }); else setOpen(a.id); }}>
+              {selectMode && (
+                <div className="gal-card-check" onClick={e => toggleCheck(a.id, e)}>
+                  <input type="checkbox" readOnly checked={checked.includes(a.id)} />
+                </div>
+              )}
               <div className="gal-card-cover">
                 {a.cover_photo
                   ? <img src={api.albumCoverUrl(a.id)} alt={a.title} loading="lazy" />
@@ -412,16 +449,19 @@ function GalleriesView() {
                   <span>📷 {a.photo_count}</span>
                   {a.selected_count > 0 && <span className="gal-picked">✅ {a.selected_count}</span>}
                 </div>
-                <div className="gal-card-actions">
-                  <button className="gal-mini" onClick={e => { e.stopPropagation(); startEdit(a); }}>✏️ Edit</button>
-                  <button className="gal-mini gal-mini-send" onClick={e => { e.stopPropagation(); openSend(a); }}>📧 Send</button>
-                  <button className="gal-mini gal-mini-del" onClick={e => { e.stopPropagation(); del(a.id); }}>🗑️</button>
-                </div>
+                {!selectMode && (
+                  <div className="gal-card-actions">
+                    <button className="gal-mini" onClick={e => { e.stopPropagation(); startEdit(a); }}>✏️ Edit</button>
+                    <button className="gal-mini gal-mini-send" onClick={e => { e.stopPropagation(); openSend(a); }}>📧 Send</button>
+                    <button className="gal-mini gal-mini-del" onClick={e => { e.stopPropagation(); del(a.id); }}>🗑️</button>
+                  </div>
+                )}
               </div>
             </div>
           ))}
         </div>
-      )}
+        );
+      })()}
 
       {sendModal && (
         <div className="al-overlay" onClick={() => setSendModal(null)}>
