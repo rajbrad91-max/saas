@@ -812,21 +812,28 @@ function LeadsView() {
   const [view, setView] = useState('active'); // active | history
   const [filter, setFilter] = useState('all'); // all | new | quoted | booked
   const [checked, setChecked] = useState([]);
+  const [selectMode, setSelectMode] = useState(false);
   const [msg, setMsg] = useState('');
   const [search, setSearch] = useState('');
   const [showSearch, setShowSearch] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
 
+  // 🗑️ bin click: 1st click → enter select mode; if items checked → delete; if in mode w/ none → exit
+  function onBinClick() {
+    if (!selectMode) { setSelectMode(true); return; }
+    if (checked.length) { deleteChecked(); return; }
+    setSelectMode(false);
+  }
   async function deleteChecked() {
     if (!checked.length) return;
     if (!confirm(`Delete ${checked.length} lead(s)? This can't be undone.`)) return;
-    try { await api.bulkDeleteLeads(checked); setMsg('🗑️ Deleted'); setTimeout(() => setMsg(''), 1500); load(); }
+    try { await api.bulkDeleteLeads(checked); setMsg('🗑️ Deleted'); setTimeout(() => setMsg(''), 1500); setSelectMode(false); load(); }
     catch (e) { setMsg('⚠️ ' + e.message); }
   }
 
   useEffect(() => { load(); }, [view]);
   async function load() {
-    setLoading(true); setChecked([]);
+    setLoading(true); setChecked([]); setSelectMode(false);
     try {
       const d = view === 'active' ? await api.leads() : await api.leadsHistory();
       setLeads(d.leads || []);
@@ -889,7 +896,7 @@ function LeadsView() {
           {view === 'active' && <>
             <button className="lead-ic-btn" onClick={() => setShowAdd(true)} title="Add lead">➕</button>
             <button className={`lead-ic-btn ${showSearch ? 'is-on' : ''}`} onClick={() => { setShowSearch(s => !s); setSearch(''); }} title="Search">🔍</button>
-            <button className="lead-ic-btn lead-ic-del" onClick={deleteChecked} disabled={!checked.length} title="Delete selected">🗑️</button>
+            <button className={`lead-ic-btn lead-ic-del ${selectMode ? 'is-on' : ''}`} onClick={onBinClick} title={selectMode ? (checked.length ? `Delete ${checked.length}` : 'Cancel select') : 'Select to delete'}>{selectMode && checked.length ? `🗑️ ${checked.length}` : '🗑️'}</button>
           </>}
           <button className={`refresh ${view === 'active' ? 'is-on' : ''}`} onClick={() => setView('active')}>📋 Active</button>
           <button className={`refresh ${view === 'history' ? 'is-on' : ''}`} onClick={() => setView('history')}>📜 History</button>
@@ -913,15 +920,15 @@ function LeadsView() {
 
       <div className="table-wrap">
         <table className="leads-table">
-          <thead><tr>{view === 'active' && <th className="col-check"></th>}<th>Client</th><th>Event</th><th>Date</th><th>Location</th><th>Packages</th><th>Status</th><th>Actions</th></tr></thead>
+          <thead><tr>{view === 'active' && selectMode && <th className="col-check"></th>}<th>Client</th><th>Event</th><th>Date</th><th>Location</th><th>Packages</th><th>Status</th><th>Actions</th></tr></thead>
           <tbody>
             {loading ? (
               <tr><td colSpan="8" className="empty">Loading…</td></tr>
             ) : shown.length === 0 ? (
               <tr><td colSpan="8" className="empty">{view === 'active' ? 'No leads yet. Share your inquiry link! 📨' : 'No archived leads 📜'}</td></tr>
             ) : shown.map(l => (
-              <tr key={l.id} onClick={() => view === 'active' && setSel(l)} className={view === 'active' ? 'row-clickable' : ''}>
-                {view === 'active' && (
+              <tr key={l.id} onClick={() => { if (view !== 'active') return; if (selectMode) { setChecked(c => c.includes(l.id) ? c.filter(x => x !== l.id) : [...c, l.id]); } else { setSel(l); } }} className={view === 'active' ? 'row-clickable' : ''}>
+                {view === 'active' && selectMode && (
                   <td className="cell-check" onClick={e => toggleCheck(l.id, e)}>
                     <input type="checkbox" readOnly checked={checked.includes(l.id)} className="lead-check" />
                   </td>
