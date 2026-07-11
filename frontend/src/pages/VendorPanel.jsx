@@ -894,7 +894,7 @@ function CrewView() {
   );
 }
 
-function CalendarView({ onOpen }) {
+function CalendarView({ onOpen, filter }) {
   const [bookings, setBookings] = useState([]);
   const [cur, setCur] = useState(() => { const d = new Date(); return { y: d.getFullYear(), m: d.getMonth() }; });
   const [selDay, setSelDay] = useState(null);
@@ -904,8 +904,14 @@ function CalendarView({ onOpen }) {
     api.bookings().then(d => setBookings(d.bookings || [])).catch(() => {});
   }, []);
 
+  // 🔍 when searching from Bookings, only show matching events on the calendar
+  const term = (filter || '').trim().toLowerCase();
+  const shown = !term ? bookings : bookings.filter(b =>
+    [b.name, b.event_type, b.event_date, b.location, b.phone, b.email]
+      .some(v => v && String(v).toLowerCase().includes(term)));
+
   const byDay = {};
-  bookings.forEach(b => {
+  shown.forEach(b => {
     if (!b.event_date) return;
     const k = String(b.event_date).slice(0, 10);
     (byDay[k] = byDay[k] || []).push(b);
@@ -1853,6 +1859,8 @@ function BookingsView() {
   const [loading, setLoading] = useState(true);
   const [mode, setMode] = useState('list'); // list | calendar
   const [sel, setSel] = useState(null);
+  const [showSearch, setShowSearch] = useState(false);
+  const [q, setQ] = useState('');
   useEffect(() => {
     api.bookings().then(d => setBookings(d.bookings || [])).catch(() => {}).finally(() => setLoading(false));
   }, []);
@@ -1865,6 +1873,12 @@ function BookingsView() {
   const inYear = bookings.filter(b => { const d = b.event_date && new Date(b.event_date); return d && d.getFullYear() === now.getFullYear(); }).length;
   const nextYear = bookings.filter(b => { const d = b.event_date && new Date(b.event_date); return d && d.getFullYear() === now.getFullYear() + 1; }).length;
 
+  // 🔍 search across client, event, date, location, phone, email
+  const term = q.trim().toLowerCase();
+  const match = (b) => !term || [b.name, b.event_type, b.event_date, b.location, b.phone, b.email]
+    .some(v => v && String(v).toLowerCase().includes(term));
+  const shown = bookings.filter(match);
+
   return (
     <div>
       <div className="bk-topbar">
@@ -1874,19 +1888,28 @@ function BookingsView() {
           <div className="bk-stat"><span className="bk-stat-val">{nextYear}</span><span className="bk-stat-lbl">Next Year</span></div>
         </div>
         <div className="bk-toggle">
+          <button className={`bk-tog-btn ${showSearch ? 'is-on' : ''}`} onClick={() => { setShowSearch(s => !s); if (showSearch) setQ(''); }} title="Search bookings">🔍</button>
           <button className={`bk-tog-btn ${mode === 'list' ? 'is-on' : ''}`} onClick={() => setMode('list')}>📋 List</button>
           <button className={`bk-tog-btn ${mode === 'calendar' ? 'is-on' : ''}`} onClick={() => setMode('calendar')}>🗓️ Calendar</button>
         </div>
       </div>
 
-      {mode === 'calendar' ? <CalendarView onOpen={setSel} /> : (
+      {showSearch && (
+        <div className="bk-search">
+          <input className="gal-input" placeholder="🔍 Search bookings — client, event, date, location…"
+            value={q} onChange={e => setQ(e.target.value)} autoFocus />
+          {term && <span className="bk-search-count">{shown.length} match{shown.length === 1 ? '' : 'es'}</span>}
+        </div>
+      )}
+
+      {mode === 'calendar' ? <CalendarView onOpen={setSel} filter={term} /> : (
         <div className="table-wrap">
           <table>
             <thead><tr><th>Client</th><th>Event</th><th>Date</th><th>Total</th><th>Paid</th><th>Balance</th></tr></thead>
             <tbody>
-              {bookings.length === 0 ? (
-                <tr><td colSpan="6" className="empty">No bookings yet. Set a lead's status to ✅ booked!</td></tr>
-              ) : bookings.map(b => (
+              {shown.length === 0 ? (
+                <tr><td colSpan="6" className="empty">{term ? 'No bookings match your search 🔍' : "No bookings yet. Set a lead's status to ✅ booked!"}</td></tr>
+              ) : shown.map(b => (
                 <tr key={b.id} className="row-clickable" onClick={() => setSel(b)}>
                   <td className="biz">{b.name}</td>
                   <td>{b.event_type}</td>

@@ -769,3 +769,8 @@
 .ac-upsell-list li { font-size: 14px; padding: 7px 0; }
 .ac-upsell-btn { padding: 12px 26px !important; font-size: 14.5px !important; }
 @media (max-width: 600px) { .ac-msg { max-width: 95%; } }
+
+/* 🔍 Bookings search */
+.bk-search { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.bk-search .gal-input { flex: 1; max-width: 460px; }
+.bk-search-count { color: var(--muted); font-size: 13px; white-space: nowrap; }
