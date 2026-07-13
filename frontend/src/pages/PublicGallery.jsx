@@ -236,18 +236,19 @@ export default function PublicGallery({ token, embedded }) {
       const r = ratios[p.id] || 1.5;                // assume 3:2 until measured
       row.push({ p, r });
       sum += r;
-      const w = sum * targetH + GAP * (row.length - 1);
-      if (w >= gridW) {                             // row is full — justify it
+
+      // close the row once we hit the target count for this screen width.
+      // (capping by COUNT — not by accumulated width — is what keeps it at
+      // 5 across on a laptop even when photos are portrait or panoramic.)
+      if (row.length >= perRow) {
         const avail = gridW - GAP * (row.length - 1);
-        const h = avail / sum;
-        rows.push({ items: row, h });
+        rows.push({ items: row, h: avail / sum });   // justify to full width
         row = []; sum = 0;
       }
     }
-    if (row.length) {                               // last row: keep natural height, don't stretch
+    if (row.length) {                               // last row: don't stretch a stray photo
       const avail = gridW - GAP * (row.length - 1);
-      const h = Math.min(targetH, avail / sum);
-      rows.push({ items: row, h, last: true });
+      rows.push({ items: row, h: Math.min(targetH, avail / sum), last: true });
     }
   }
 
