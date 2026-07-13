@@ -13,6 +13,12 @@ const require = createRequire(import.meta.url);
 const archiver = require('archiver');
 const upload = multer({ dest: '/tmp/vowflo-selfie' });
 
+// 📶 photos read in filename order, case-insensitive, with digit runs zero-padded
+// so they compare numerically (IMG_2 before IMG_10).
+const NAT_ORDER = `
+  regexp_replace(lower(filename), '(\\d+)', lpad('\\1', 10, '0'), 'g') ASC,
+  id ASC`;
+
 const THEME_DEFAULTS = {
   heading_font: 'Playfair Display', body_font: 'Jost',
   bg_color: '#fbfbfa', heading_color: '#16161a', accent_color: '#1f6f6b', sub_color: '#8a8a8f',
@@ -109,7 +115,9 @@ router.post('/:token/auth', async (req, res) => {
     else if (a.guest_password && pw === a.guest_password) role = 'guest';
     if (!role) return res.status(401).json({ error: 'Wrong password' });
 
-    const { rows: photos } = await query('SELECT id, filename, event_id, face_count FROM photos WHERE album_id=$1 ORDER BY id', [a.id]);
+    const { rows: photos } = await query(
+      `SELECT id, filename, event_id, face_count FROM photos
+       WHERE album_id=$1 ORDER BY ${NAT_ORDER}`, [a.id]);
     const theme = await getTheme(a.vendor_id);
     const mode = a.gallery_mode || theme.default_mode || 'per_event';
     // per-client mode: group photos under events
@@ -168,12 +176,12 @@ router.get('/:token/download-all', async (req, res) => {
     const eventId = req.query.event ? parseInt(req.query.event, 10) : null;
     let photos, zipLabel = a.title || 'gallery';
     if (eventId) {
-      const r = await query('SELECT * FROM photos WHERE album_id=$1 AND event_id=$2 ORDER BY id', [a.id, eventId]);
+      const r = await query(`SELECT * FROM photos WHERE album_id=$1 AND event_id=$2 ORDER BY ${NAT_ORDER}`, [a.id, eventId]);
       photos = r.rows;
       const ev = await query('SELECT name FROM album_events WHERE id=$1 AND album_id=$2', [eventId, a.id]);
       if (ev.rows[0]) zipLabel = `${a.title}-${ev.rows[0].name}`;
     } else {
-      const r = await query('SELECT * FROM photos WHERE album_id=$1 ORDER BY id', [a.id]);
+      const r = await query(`SELECT * FROM photos WHERE album_id=$1 ORDER BY ${NAT_ORDER}`, [a.id]);
       photos = r.rows;
     }
     if (!photos.length) return res.status(404).json({ error: 'No photos' });

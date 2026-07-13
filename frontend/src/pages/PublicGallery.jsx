@@ -32,6 +32,25 @@ export default function PublicGallery({ token, embedded }) {
   const [scrolled, setScrolled] = useState(false);
   const selfieInput = useRef(null);
   const gridRef = useRef(null);
+  const rowsRef = useRef(null);
+  const [ratios, setRatios] = useState({});   // photoId → width/height
+  const [gridW, setGridW] = useState(0);
+
+  // measure the grid width so rows can be justified
+  useEffect(() => {
+    const el = rowsRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([e]) => setGridW(e.contentRect.width));
+    ro.observe(el);
+    setGridW(el.clientWidth);
+    return () => ro.disconnect();
+  }, [session]);
+
+  const noteRatio = (id, img) => {
+    if (!img?.naturalWidth || !img?.naturalHeight) return;
+    const r = img.naturalWidth / img.naturalHeight;
+    setRatios(prev => (prev[id] ? prev : { ...prev, [id]: r }));
+  };
 
   useEffect(() => { ensureFonts(); }, []);
   useEffect(() => {
@@ -194,6 +213,34 @@ export default function PublicGallery({ token, embedded }) {
   const current = lightbox !== null ? photos[lightbox] : null;
   const nPicked = picked.size;
 
+  // 📐 pack photos into justified rows — reads strictly left→right, in order.
+  const isPhone = gridW > 0 && gridW < 640;
+  const GAP = isPhone ? 6 : 8;
+  // on phones aim for 2 across; on desktop keep rows ~230px tall
+  const targetH = isPhone ? (gridW - GAP) / 2 / 1.5 : 230;
+  const rows = [];
+  if (gridW > 0) {
+    let row = [];
+    let sum = 0;                                    // sum of aspect ratios in this row
+    for (const p of photos) {
+      const r = ratios[p.id] || 1.5;                // assume 3:2 until measured
+      row.push({ p, r });
+      sum += r;
+      const w = sum * targetH + GAP * (row.length - 1);
+      if (w >= gridW) {                             // row is full — justify it
+        const avail = gridW - GAP * (row.length - 1);
+        const h = avail / sum;
+        rows.push({ items: row, h });
+        row = []; sum = 0;
+      }
+    }
+    if (row.length) {                               // last row: keep natural height, don't stretch
+      const avail = gridW - GAP * (row.length - 1);
+      const h = Math.min(targetH, avail / sum);
+      rows.push({ items: row, h, last: true });
+    }
+  }
+
   return (
     <div className="pg-wrap" style={styleVars}>
 
@@ -255,30 +302,41 @@ export default function PublicGallery({ token, embedded }) {
         </nav>
       )}
 
-      {photos.length === 0 ? (
-        <div className="pg-state">
-          {pickedOnly ? 'Nothing selected yet.'
-            : matchIds !== null ? 'No matching photos.'
-            : 'This gallery is empty.'}
-        </div>
-      ) : (
-        <div className="pg-masonry">
-          {photos.map((p, i) => (
-            <figure
-              key={p.id}
-              className={`pg-tile ${picked.has(p.id) ? 'is-picked' : ''}`}
-              onClick={() => { setSlideshow(false); setLightbox(i); }}
-            >
-              <img src={photoUrl(p.id, 'thumb')} loading="lazy" alt="" />
-              <button
-                className="pg-check"
-                onClick={e => { e.stopPropagation(); togglePick(p.id); }}
-                aria-label={picked.has(p.id) ? 'Deselect photo' : 'Select photo'}
-              >✓</button>
-            </figure>
-          ))}
-        </div>
-      )}
+      <div ref={rowsRef} className="pg-rows">
+        {photos.length === 0 ? (
+          <div className="pg-state">
+            {pickedOnly ? 'Nothing selected yet.'
+              : matchIds !== null ? 'No matching photos.'
+              : 'This gallery is empty.'}
+          </div>
+        ) : rows.map((row, ri) => (
+          <div key={ri} className="pg-row" style={{ height: row.h }}>
+            {row.items.map(({ p, r }) => {
+              const idx = photos.indexOf(p);
+              return (
+                <figure
+                  key={p.id}
+                  className={`pg-tile ${picked.has(p.id) ? 'is-picked' : ''}`}
+                  style={{ width: r * row.h }}
+                  onClick={() => { setSlideshow(false); setLightbox(idx); }}
+                >
+                  <img
+                    src={photoUrl(p.id, 'thumb')}
+                    loading="lazy"
+                    alt=""
+                    onLoad={e => noteRatio(p.id, e.currentTarget)}
+                  />
+                  <button
+                    className="pg-check"
+                    onClick={e => { e.stopPropagation(); togglePick(p.id); }}
+                    aria-label={picked.has(p.id) ? 'Deselect photo' : 'Select photo'}
+                  >✓</button>
+                </figure>
+              );
+            })}
+          </div>
+        ))}
+      </div>
 
       {nPicked > 0 && (
         <div className="pg-selbar">
