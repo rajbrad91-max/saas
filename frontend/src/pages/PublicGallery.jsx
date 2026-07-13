@@ -32,19 +32,7 @@ export default function PublicGallery({ token, embedded }) {
   const [scrolled, setScrolled] = useState(false);
   const selfieInput = useRef(null);
   const gridRef = useRef(null);
-  const rowsRef = useRef(null);
-  const [ratios, setRatios] = useState({});   // photoId → width/height
-  const [gridW, setGridW] = useState(0);
-
-  // measure the grid width so rows can be justified
-  useEffect(() => {
-    const el = rowsRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver(([e]) => setGridW(e.contentRect.width));
-    ro.observe(el);
-    setGridW(el.clientWidth);
-    return () => ro.disconnect();
-  }, [session]);
+  const [ratios, setRatios] = useState({});   // photoId → width/height (portraits span 2 rows)
 
   const noteRatio = (id, img) => {
     if (!img?.naturalWidth || !img?.naturalHeight) return;
@@ -213,53 +201,6 @@ export default function PublicGallery({ token, embedded }) {
   const current = lightbox !== null ? photos[lightbox] : null;
   const nPicked = picked.size;
 
-  // 📐 pack photos into justified rows — reads strictly left→right, in order.
-  // Row height comes from a TARGET photos-per-row that scales with the viewport,
-  // so tiles stay a sensible size on phones, folds, tablets and wide laptops.
-  const GAP = gridW < 640 ? 6 : 8;
-  const perRow =
-    gridW < 560 ? 2 :          // phones
-    gridW < 820 ? 3 :          // large phones / folds open / small tablets
-    gridW < 1100 ? 4 :         // tablets, small laptops
-    gridW < 1600 ? 5 :         // typical laptop  ← the 5-across target
-    6;                         // large desktops
-  // assume a 3:2 photo when sizing the row; the packer re-justifies with real ratios
-  const targetH = gridW > 0
-    ? (gridW - GAP * (perRow - 1)) / perRow / 1.5
-    : 220;
-
-  const rows = [];
-  if (gridW > 0) {
-    let row = [];
-    let sum = 0;                                    // sum of aspect ratios in this row
-    for (const p of photos) {
-      const r = ratios[p.id] || 1.5;                // assume 3:2 until measured
-      row.push({ p, r });
-      sum += r;
-
-      // close the row once we hit the target count for this screen width.
-      // (capping by COUNT — not by accumulated width — is what keeps it at
-      // 5 across on a laptop even when photos are portrait or panoramic.)
-      if (row.length >= perRow) {
-        const avail = gridW - GAP * (row.length - 1);
-        // justify to full width, but keep row heights in a sane band so one
-        // panoramic shot can't make an entire row tower over its neighbours
-        const h = Math.max(targetH * 0.72, Math.min(targetH * 1.35, avail / sum));
-        rows.push({ items: row, h });
-        row = []; sum = 0;
-      }
-    }
-    if (row.length) {
-      // Last row is short. Give it the same height as the row above so tiles line
-      // up, and let it end early rather than stretching a few photos across the
-      // whole width (the .is-last class stops the tiles from flex-growing).
-      const prev = rows[rows.length - 1];
-      const avail = gridW - GAP * (row.length - 1);
-      const h = prev ? prev.h : Math.min(targetH, avail / sum);
-      rows.push({ items: row, h, isLast: true });
-    }
-  }
-
   return (
     <div className="pg-wrap" style={styleVars}>
 
@@ -321,40 +262,36 @@ export default function PublicGallery({ token, embedded }) {
         </nav>
       )}
 
-      <div ref={rowsRef} className="pg-rows">
+      <div className="pg-grid">
         {photos.length === 0 ? (
           <div className="pg-state">
             {pickedOnly ? 'Nothing selected yet.'
               : matchIds !== null ? 'No matching photos.'
               : 'This gallery is empty.'}
           </div>
-        ) : rows.map((row, ri) => (
-          <div key={ri} className={`pg-row ${row.isLast ? 'is-last' : ''}`} style={{ height: row.h }}>
-            {row.items.map(({ p, r }) => {
-              const idx = photos.indexOf(p);
-              return (
-                <figure
-                  key={p.id}
-                  className={`pg-tile ${picked.has(p.id) ? 'is-picked' : ''}`}
-                  style={{ width: r * row.h }}
-                  onClick={() => { setSlideshow(false); setLightbox(idx); }}
-                >
-                  <img
-                    src={photoUrl(p.id, 'thumb')}
-                    loading="lazy"
-                    alt=""
-                    onLoad={e => noteRatio(p.id, e.currentTarget)}
-                  />
-                  <button
-                    className="pg-check"
-                    onClick={e => { e.stopPropagation(); togglePick(p.id); }}
-                    aria-label={picked.has(p.id) ? 'Deselect photo' : 'Select photo'}
-                  >✓</button>
-                </figure>
-              );
-            })}
-          </div>
-        ))}
+        ) : photos.map((p, i) => {
+          const r = ratios[p.id];
+          const tall = r !== undefined && r < 0.9;   // portrait → occupy two rows
+          return (
+            <figure
+              key={p.id}
+              className={`pg-tile ${tall ? 'is-tall' : ''} ${picked.has(p.id) ? 'is-picked' : ''}`}
+              onClick={() => { setSlideshow(false); setLightbox(i); }}
+            >
+              <img
+                src={photoUrl(p.id, 'thumb')}
+                loading="lazy"
+                alt=""
+                onLoad={e => noteRatio(p.id, e.currentTarget)}
+              />
+              <button
+                className="pg-check"
+                onClick={e => { e.stopPropagation(); togglePick(p.id); }}
+                aria-label={picked.has(p.id) ? 'Deselect photo' : 'Select photo'}
+              >✓</button>
+            </figure>
+          );
+        })}
       </div>
 
       {nPicked > 0 && (
