@@ -242,13 +242,21 @@ export default function PublicGallery({ token, embedded }) {
       // 5 across on a laptop even when photos are portrait or panoramic.)
       if (row.length >= perRow) {
         const avail = gridW - GAP * (row.length - 1);
-        rows.push({ items: row, h: avail / sum });   // justify to full width
+        // justify to full width, but keep row heights in a sane band so one
+        // panoramic shot can't make an entire row tower over its neighbours
+        const h = Math.max(targetH * 0.72, Math.min(targetH * 1.35, avail / sum));
+        rows.push({ items: row, h });
         row = []; sum = 0;
       }
     }
-    if (row.length) {                               // last row: don't stretch a stray photo
+    if (row.length) {
+      // Last row is short. Give it the same height as the row above so tiles line
+      // up, and let it end early rather than stretching a few photos across the
+      // whole width (the .is-last class stops the tiles from flex-growing).
+      const prev = rows[rows.length - 1];
       const avail = gridW - GAP * (row.length - 1);
-      rows.push({ items: row, h: Math.min(targetH, avail / sum) });
+      const h = prev ? prev.h : Math.min(targetH, avail / sum);
+      rows.push({ items: row, h, isLast: true });
     }
   }
 
@@ -321,7 +329,7 @@ export default function PublicGallery({ token, embedded }) {
               : 'This gallery is empty.'}
           </div>
         ) : rows.map((row, ri) => (
-          <div key={ri} className="pg-row" style={{ height: row.h }}>
+          <div key={ri} className={`pg-row ${row.isLast ? 'is-last' : ''}`} style={{ height: row.h }}>
             {row.items.map(({ p, r }) => {
               const idx = photos.indexOf(p);
               return (
