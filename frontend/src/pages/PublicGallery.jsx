@@ -214,10 +214,20 @@ export default function PublicGallery({ token, embedded }) {
   const nPicked = picked.size;
 
   // 📐 pack photos into justified rows — reads strictly left→right, in order.
-  const isPhone = gridW > 0 && gridW < 640;
-  const GAP = isPhone ? 6 : 8;
-  // on phones aim for 2 across; on desktop keep rows ~230px tall
-  const targetH = isPhone ? (gridW - GAP) / 2 / 1.5 : 230;
+  // Row height comes from a TARGET photos-per-row that scales with the viewport,
+  // so tiles stay a sensible size on phones, folds, tablets and wide laptops.
+  const GAP = gridW < 640 ? 6 : 8;
+  const perRow =
+    gridW < 560 ? 2 :          // phones
+    gridW < 820 ? 3 :          // large phones / folds open / small tablets
+    gridW < 1100 ? 4 :         // tablets, small laptops
+    gridW < 1600 ? 5 :         // typical laptop  ← the 5-across target
+    6;                         // large desktops
+  // assume a 3:2 photo when sizing the row; the packer re-justifies with real ratios
+  const targetH = gridW > 0
+    ? (gridW - GAP * (perRow - 1)) / perRow / 1.5
+    : 220;
+
   const rows = [];
   if (gridW > 0) {
     let row = [];
