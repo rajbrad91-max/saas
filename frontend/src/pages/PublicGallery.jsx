@@ -32,6 +32,14 @@ export default function PublicGallery({ token, embedded }) {
   const [scrolled, setScrolled] = useState(false);
   const selfieInput = useRef(null);
   const gridRef = useRef(null);
+  const [tallIds, setTallIds] = useState(() => new Set());   // portraits → span 2 grid rows
+
+  // measure each photo once it loads; portraits get a taller cell
+  const noteShape = (id, img) => {
+    if (!img?.naturalWidth || !img?.naturalHeight) return;
+    if (img.naturalHeight <= img.naturalWidth) return;        // landscape/square → normal cell
+    setTallIds(prev => (prev.has(id) ? prev : new Set(prev).add(id)));
+  };
 
   useEffect(() => { ensureFonts(); }, []);
   useEffect(() => {
@@ -265,10 +273,15 @@ export default function PublicGallery({ token, embedded }) {
         ) : photos.map((p, i) => (
           <figure
             key={p.id}
-            className={`pg-tile ${picked.has(p.id) ? 'is-picked' : ''}`}
+            className={`pg-tile ${tallIds.has(p.id) ? 'is-tall' : ''} ${picked.has(p.id) ? 'is-picked' : ''}`}
             onClick={() => { setSlideshow(false); setLightbox(i); }}
           >
-            <img src={photoUrl(p.id, 'thumb')} loading="lazy" alt="" />
+            <img
+              src={photoUrl(p.id, 'thumb')}
+              loading="lazy"
+              alt=""
+              onLoad={e => noteShape(p.id, e.currentTarget)}
+            />
             <button
               className="pg-check"
               onClick={e => { e.stopPropagation(); togglePick(p.id); }}
