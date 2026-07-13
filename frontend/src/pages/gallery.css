@@ -128,17 +128,14 @@
 }
 @keyframes pg-drop { 0%, 100% { transform: scaleY(.35); opacity: .4; } 50% { transform: scaleY(1); opacity: 1; } }
 
-.pg-anchor { scroll-margin-top: 62px; }
-
-/* ── 🧭 top bar — fixed, always visible ── */
+/* ── 🧭 top bar — sits in the page and scrolls away with it ── */
 .pg-bar {
-  position: fixed; top: 0; left: 0; right: 0;
+  position: relative;
   z-index: 30;
   display: flex; justify-content: space-between; align-items: center;
   gap: 16px;
   padding: 14px 28px;
-  background: color-mix(in srgb, var(--pg-bg) 90%, transparent);
-  backdrop-filter: blur(18px);
+  background: var(--pg-bg);
   border-bottom: 1px solid color-mix(in srgb, var(--pg-head) 7%, transparent);
 }
 

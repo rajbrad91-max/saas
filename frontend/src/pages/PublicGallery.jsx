@@ -232,7 +232,7 @@ export default function PublicGallery({ token, embedded }) {
         </nav>
       </header>
 
-      <div ref={gridRef} className="pg-anchor" />
+      <div ref={gridRef} />
 
       {selfieMsg && <div className="pg-note">{selfieMsg}</div>}
 
