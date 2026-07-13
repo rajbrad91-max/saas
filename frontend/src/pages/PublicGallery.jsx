@@ -19,10 +19,9 @@ const Icon = ({ d, ...rest }) => (
   </svg>
 );
 const IconFace = <Icon d={<><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></>} />;
-const IconShare = <Icon d={<><path d="M12 15V3" /><path d="M8 7l4-4 4 4" /><path d="M4 14v5a2 2 0 002 2h12a2 2 0 002-2v-5" /></>} />;
-const IconPlay = <Icon d={<path d="M8 5l11 7-11 7V5z" />} />;
 const IconDownload = <Icon d={<><path d="M12 3v12" /><path d="M8 11l4 4 4-4" /><path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" /></>} />;
 const IconClose = <Icon d={<><path d="M6 6l12 12" /><path d="M18 6L6 18" /></>} />;
+const IconGrid = <Icon d={<><circle cx="8" cy="8" r="3" /><circle cx="16" cy="8" r="3" /><circle cx="8" cy="16" r="3" /><circle cx="16" cy="16" r="3" /></>} />;
 
 export default function PublicGallery({ token, embedded, onBack }) {
   const [meta, setMeta] = useState(null);
@@ -41,11 +40,22 @@ export default function PublicGallery({ token, embedded, onBack }) {
   const [picked, setPicked] = useState(() => new Set());
   const [pickedOnly, setPickedOnly] = useState(false);
   const [slideshow, setSlideshow] = useState(false);
-  const [copied, setCopied] = useState(false);
   const [faces, setFaces] = useState([]);           // face circles, most photos first
   const [activeFace, setActiveFace] = useState(null);
   const [allFaces, setAllFaces] = useState(false);  // "Find more" → show every circle
   const [findMeOpen, setFindMeOpen] = useState(false);
+  const [faceLimit, setFaceLimit] = useState(10);
+
+  // how many face circles fit before "Find more": 4-5 on phones, 8-10 on desktop
+  useEffect(() => {
+    const calc = () => {
+      const w = window.innerWidth;
+      setFaceLimit(w < 480 ? 4 : w < 700 ? 5 : w < 1100 ? 8 : 10);
+    };
+    calc();
+    window.addEventListener('resize', calc);
+    return () => window.removeEventListener('resize', calc);
+  }, []);
   const selfieInput = useRef(null);
   const cameraInput = useRef(null);
   const gridRef = useRef(null);
@@ -154,14 +164,6 @@ export default function PublicGallery({ token, embedded, onBack }) {
   }
   function clearPicked() { setPicked(new Set()); persist(new Set()); setPickedOnly(false); }
 
-  function share() {
-    const url = window.location.href;
-    if (navigator.share) { navigator.share({ title: session?.title || 'Gallery', url }).catch(() => {}); return; }
-    navigator.clipboard.writeText(url)
-      .then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); })
-      .catch(() => prompt('Copy this link:', url));
-  }
-
   async function onSelfie(e) {
     const file = e.target.files[0];
     if (!file) return;
@@ -261,9 +263,9 @@ export default function PublicGallery({ token, embedded, onBack }) {
 
   const current = lightbox !== null ? photos[lightbox] : null;
   const nPicked = picked.size;
-  const FACE_LIMIT = 10;                                   // CSS keeps 4-5 visible on phones
-  const shownFaces = allFaces ? faces : faces.slice(0, FACE_LIMIT);
-  const hasMoreFaces = faces.length > FACE_LIMIT;
+  // how many circles fit before "Find more" — 4-5 on phones, 8-10 on desktop
+  const shownFaces = allFaces ? faces : faces.slice(0, faceLimit);
+  const hasMoreFaces = faces.length > faceLimit;
 
   return (
     <div className="pg-wrap" style={styleVars}>
@@ -281,24 +283,14 @@ export default function PublicGallery({ token, embedded, onBack }) {
         </button>
       </section>
 
-      {/* bar 1 — navigation + the album download */}
+      {/* bar 1 — back + download the album */}
       <div className="pg-actions">
         {onBack
           ? <button className="pg-back" onClick={onBack}>← Back to all albums</button>
           : <span className="pg-back is-static">{session.title}</span>}
-        <div className="pg-actions-right">
-          <button className="pg-ico" onClick={share}>
-            {IconShare}<span>{copied ? 'Copied' : 'Share'}</span>
-          </button>
-          {photos.length > 0 && (
-            <button className="pg-ico" onClick={() => { setLightbox(0); setSlideshow(true); }}>
-              {IconPlay}<span>Slideshow</span>
-            </button>
-          )}
-          <button className="pg-ico is-solid" onClick={() => downloadAll('all')} disabled={zipBusy === 'all'}>
-            {IconDownload}<span>{zipBusy === 'all' ? 'Preparing…' : 'Download album'}</span>
-          </button>
-        </div>
+        <button className="pg-ico is-solid" onClick={() => downloadAll('all')} disabled={zipBusy === 'all'}>
+          {IconDownload}<span>{zipBusy === 'all' ? 'Preparing…' : 'Download album'}</span>
+        </button>
       </div>
 
       {/* bar 2 — the people in this gallery */}
@@ -325,11 +317,13 @@ export default function PublicGallery({ token, embedded, onBack }) {
                 {IconClose}<span>Show all</span>
               </button>
             )}
-            {hasMoreFaces && (
-              <button className="pg-ico" onClick={() => setAllFaces(v => !v)}>
-                {allFaces ? 'Show fewer' : `Find more (${faces.length})`}
-              </button>
-            )}
+            <button
+              className="pg-ico"
+              onClick={() => setAllFaces(v => !v)}
+              disabled={!hasMoreFaces && !allFaces}
+            >
+              {IconGrid}<span>{allFaces ? 'Show fewer' : 'Find more'}</span>
+            </button>
             <button className="pg-ico" onClick={() => setFindMeOpen(true)} disabled={selfieBusy}>
               {IconFace}<span>{selfieBusy ? 'Searching…' : 'Find me'}</span>
             </button>

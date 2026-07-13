@@ -138,8 +138,6 @@
   padding: 18px clamp(14px, 3vw, 28px);
   border-bottom: 1px solid color-mix(in srgb, var(--pg-head) 8%, transparent);
 }
-.pg-actions-right { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-
 .pg-back {
   background: none; border: none;
   padding: 0;
@@ -613,7 +611,6 @@
     align-items: stretch;
     gap: 12px;
   }
-  .pg-actions-right { justify-content: space-between; gap: 6px; }
   .pg-people {
     flex-direction: column;
     align-items: stretch;
