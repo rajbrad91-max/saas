@@ -684,6 +684,23 @@
 .ad-upload { background: #2dd4bf; color: #06231f; cursor: pointer; }
 .ad-prog { margin-bottom: 12px; font-size: 13px; color: var(--muted); }
 .ad-empty { padding: 40px; text-align: center; color: var(--muted); }
+/* 📤 big click-or-drop upload zone shown when an event has no photos yet */
+.ad-dropzone {
+  min-height: 340px;
+  display: flex; align-items: center; justify-content: center;
+  border: 2px dashed var(--line);
+  border-radius: 14px;
+  background: var(--panel);
+  cursor: pointer;
+  transition: border-color .16s, background .16s;
+}
+.ad-dropzone:hover { border-color: #2dd4bf; background: #2dd4bf08; }
+.ad-dropzone.is-drag { border-color: #2dd4bf; background: #2dd4bf14; border-style: solid; }
+.ad-dropzone.is-off { cursor: default; opacity: .7; }
+.ad-dropzone.is-off:hover { border-color: var(--line); background: var(--panel); }
+.ad-dropzone-inner { text-align: center; pointer-events: none; padding: 24px; }
+.ad-dropzone-ico { font-size: 40px; margin-bottom: 12px; }
+.ad-dropzone-title { color: var(--muted); font-size: 15px; font-weight: 600; }
 .ad-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(150px,1fr)); gap: 10px; }
 .ad-grid-sentinel { padding: 22px; text-align: center; color: var(--muted); font-size: 12.5px; }
 .ad-photo { position: relative; border-radius: 10px; overflow: hidden; border: 1px solid var(--line); aspect-ratio: 1; }

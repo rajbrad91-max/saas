@@ -777,6 +777,8 @@ function AlbumDetail({ albumId, onBack }) {
   const [newEvent, setNewEvent] = useState('');
   const [visibleCount, setVisibleCount] = useState(20); // infinite-scroll: how many thumbs are mounted
   const [pending, setPending] = useState([]); // local previews of files still uploading {uid, url, eventId}
+  const [dragOver, setDragOver] = useState(false); // drag-and-drop upload zone highlight
+  const dropInputRef = useRef(null); // hidden input the big drop zone clicks
   const sentinelRef = useRef(null);
   const workerRef = useRef(null);
   const token = localStorage.getItem('vowflo_token');
@@ -818,6 +820,18 @@ function AlbumDetail({ albumId, onBack }) {
   function onFiles(e) {
     const files = [...e.target.files];
     e.target.value = '';
+    startUpload(files);
+  }
+  // drag-and-drop onto the big upload zone
+  function onDrop(e) {
+    e.preventDefault();
+    setDragOver(false);
+    startUpload(e.dataTransfer.files);
+  }
+  function onDragOver(e) { e.preventDefault(); if (!dragOver) setDragOver(true); }
+  function onDragLeave(e) { e.preventDefault(); setDragOver(false); }
+  function startUpload(fileArr) {
+    const files = [...fileArr].filter(f => f.type.startsWith('image/'));
     if (!files.length) return;
     // in per-client mode uploads go into the active event (must pick one first)
     const eventId = isPerClient && activeEvent !== 'all' ? activeEvent : null;
@@ -941,7 +955,26 @@ function AlbumDetail({ albumId, onBack }) {
       {prog && <div className="ad-prog">{prog}</div>}
 
       {shown.length === 0 && pendingShown.length === 0 ? (
-        <div className="table-wrap ad-empty">{isPerClient && activeEvent === 'all' && events.length === 0 ? 'Create an event above, then upload photos into it 📤' : 'No photos here yet. Upload some 📤'}</div>
+        (isPerClient && activeEvent === 'all' && events.length === 0) ? (
+          <div className="table-wrap ad-empty">Create an event above, then upload photos into it 📤</div>
+        ) : (
+          <div
+            className={`ad-dropzone ${dragOver ? 'is-drag' : ''} ${uploading || (isPerClient && activeEvent === 'all') ? 'is-off' : ''}`}
+            onClick={() => { if (!uploading && !(isPerClient && activeEvent === 'all')) dropInputRef.current?.click(); }}
+            onDrop={onDrop}
+            onDragOver={onDragOver}
+            onDragLeave={onDragLeave}
+          >
+            <input ref={dropInputRef} type="file" accept="image/*" multiple hidden onChange={onFiles} />
+            <div className="ad-dropzone-inner">
+              <div className="ad-dropzone-ico">📤</div>
+              <div className="ad-dropzone-title">
+                {isPerClient && activeEvent === 'all' ? 'Pick an event above to upload'
+                  : dragOver ? 'Drop photos to upload' : 'Click to choose photos, or drag & drop them here'}
+              </div>
+            </div>
+          </div>
+        )
       ) : (
         <div className="ad-grid">
           {visible.map(p => (
