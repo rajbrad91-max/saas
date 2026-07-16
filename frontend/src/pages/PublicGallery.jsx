@@ -40,7 +40,6 @@ export default function PublicGallery({ token, embedded, onBack }) {
   const [picked, setPicked] = useState(() => new Set());
   const [pickedOnly, setPickedOnly] = useState(false);
   const [slideshow, setSlideshow] = useState(false);
-  const [zoomed, setZoomed] = useState(false);      // double-tap zoom → swap to original 1:1
   const [faces, setFaces] = useState([]);           // face circles, most photos first
   const [activeFace, setActiveFace] = useState(null);
   const [allFaces, setAllFaces] = useState(false);  // "Find more" → show every circle
@@ -217,12 +216,11 @@ export default function PublicGallery({ token, embedded, onBack }) {
     return () => clearInterval(t);
   }, [slideshow, lightbox, step]);
 
-  // ⏭️ preload the full-size of next 2 + prev 1 so swiping feels instant; reset zoom on move
+  // ⏭️ preload the full-size of next 3 + prev 1 so swiping feels instant
   useEffect(() => {
     if (lightbox === null || !session) return;
-    setZoomed(false);
     const n = photos.length;
-    [lightbox + 1, lightbox + 2, lightbox - 1]
+    [lightbox + 1, lightbox + 2, lightbox + 3, lightbox - 1]
       .filter(i => i >= 0 && i < n)
       .forEach(i => { const im = new Image(); im.src = photoUrl(photos[i].id, 'full'); });
   }, [lightbox, session]);
@@ -426,7 +424,6 @@ export default function PublicGallery({ token, embedded, onBack }) {
           onTouchEnd={onTouchEnd}
         >
           <div className="pg-lb-bar" onClick={e => e.stopPropagation()}>
-            <span className="pg-lb-count">{lightbox + 1} / {photos.length}</span>
             <span className="pg-lb-name">{(current.name || '').replace(/\.[^.]+$/, '')}</span>
             <div className="pg-lb-acts">
               <button className={`pg-lb-btn ${picked.has(current.id) ? 'is-on' : ''}`} onClick={() => togglePick(current.id)}>✓</button>
@@ -436,13 +433,11 @@ export default function PublicGallery({ token, embedded, onBack }) {
             </div>
           </div>
           <button className="pg-lb-nav prev" onClick={e => { e.stopPropagation(); setSlideshow(false); step(-1); }} aria-label="Previous">‹</button>
-          <div className="pg-lb-stage" onClick={e => e.stopPropagation()} onDoubleClick={() => setZoomed(z => !z)}>
-            {/* blur-up: the grid thumb (already cached) sits under the sharp image until it loads */}
-            <img className="pg-lb-blur" src={photoUrl(current.id, 'thumb')} alt="" aria-hidden="true" />
+          <div className="pg-lb-stage" onClick={e => e.stopPropagation()}>
             <img
-              key={current.id + (zoomed ? '-z' : '')}
-              className={`pg-lb-img ${zoomed ? 'is-zoom' : ''}`}
-              src={photoUrl(current.id, zoomed ? 'orig' : 'full')}
+              key={current.id}
+              className="pg-lb-img"
+              src={photoUrl(current.id, 'full')}
               alt=""
               decoding="async"
               fetchpriority="high"
