@@ -133,7 +133,8 @@
 /* ── back button (events bar) ── */
 .pg-back {
   background: none; border: none;
-  padding: 0;
+  padding: 0 0 12px;
+  margin-right: 6px;
   color: var(--pg-sub);
   font-family: var(--pg-bfont);
   font-size: 13px;
