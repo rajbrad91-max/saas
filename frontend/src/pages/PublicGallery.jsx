@@ -40,6 +40,7 @@ export default function PublicGallery({ token, embedded, onBack }) {
   const [picked, setPicked] = useState(() => new Set());
   const [pickedOnly, setPickedOnly] = useState(false);
   const [slideshow, setSlideshow] = useState(false);
+  const [zoomed, setZoomed] = useState(false);      // pinch/tap zoom → swap to 2500px preview
   const [faces, setFaces] = useState([]);           // face circles, most photos first
   const [activeFace, setActiveFace] = useState(null);
   const [allFaces, setAllFaces] = useState(false);  // "Find more" → show every circle
@@ -215,6 +216,16 @@ export default function PublicGallery({ token, embedded, onBack }) {
     const t = setInterval(() => step(1), 3500);
     return () => clearInterval(t);
   }, [slideshow, lightbox, step]);
+
+  // ⏭️ preload the medium of next 2 + prev 1 so swiping feels instant; reset zoom on move
+  useEffect(() => {
+    if (lightbox === null || !session) return;
+    setZoomed(false);
+    const n = photos.length;
+    [lightbox + 1, lightbox + 2, lightbox - 1]
+      .filter(i => i >= 0 && i < n)
+      .forEach(i => { const im = new Image(); im.src = photoUrl(photos[i].id, 'medium'); });
+  }, [lightbox, session]);
 
   // 👆 swipe the full-screen photo: left/right to move, down to close
   const touch = useRef(null);
@@ -424,7 +435,18 @@ export default function PublicGallery({ token, embedded, onBack }) {
             </div>
           </div>
           <button className="pg-lb-nav prev" onClick={e => { e.stopPropagation(); setSlideshow(false); step(-1); }} aria-label="Previous">‹</button>
-          <img key={current.id} className="pg-lb-img" src={photoUrl(current.id, 'preview')} alt="" onClick={e => e.stopPropagation()} />
+          <div className="pg-lb-stage" onClick={e => e.stopPropagation()} onDoubleClick={() => setZoomed(z => !z)}>
+            {/* blur-up: the grid thumb (already cached) sits under the sharp image until it loads */}
+            <img className="pg-lb-blur" src={photoUrl(current.id, 'thumb')} alt="" aria-hidden="true" />
+            <img
+              key={current.id + (zoomed ? '-z' : '')}
+              className={`pg-lb-img ${zoomed ? 'is-zoom' : ''}`}
+              src={photoUrl(current.id, zoomed ? 'preview' : 'medium')}
+              alt=""
+              decoding="async"
+              fetchpriority="high"
+            />
+          </div>
           <button className="pg-lb-nav next" onClick={e => { e.stopPropagation(); setSlideshow(false); step(1); }} aria-label="Next">›</button>
         </div>
       )}
