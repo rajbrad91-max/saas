@@ -15,17 +15,19 @@ import { findMatchesAWS } from './faceAWS.js';
 const ROOT = '/var/www/vowflo/storage/galleries';
 
 // A face must be at least this confident to be clustered — weak detections
-// (blurry background heads) would otherwise create junk circles and false matches.
-const MIN_SCORE = 0.93;
+// (blurry background heads) would otherwise create junk circles. 0.87 keeps most
+// real faces while still dropping obvious garbage.
+const MIN_SCORE = 0.87;
 // Two local descriptors within this euclidean distance are the same person.
-// Tightened from 0.52 → 0.45 for accuracy: 0.5+ merges different people (especially
-// similar faces / odd angles). 0.45 strongly favours precision — occasionally splits
-// one person into two circles, but almost never puts a stranger in someone's results.
-const MATCH_DIST = 0.45;
+// 0.48 balances two failure modes: too high (0.52+) merges different people; too
+// low (0.45) splits one person's varied angles/lighting into fragments that then
+// fall below MIN_PHOTOS and vanish. Nearest-member matching (below) is what keeps
+// this safe from drift, so we can afford a slightly looser distance here.
+const MATCH_DIST = 0.48;
 // A face box must cover at least this fraction of the image's smaller side to be
-// clustered. Tiny background faces in group shots give unreliable descriptors that
-// cause false matches, so we skip them.
-const MIN_FACE_FRAC = 0.045;
+// clustered. 0.03 skips only very distant background heads — medium-distance faces
+// (a guest across a room) still count, so people don't lose photos they're clearly in.
+const MIN_FACE_FRAC = 0.03;
 // Ignore anyone who only shows up in a single photo — usually a stranger in the
 // background, not a guest worth putting on the bar.
 const MIN_PHOTOS = 2;
