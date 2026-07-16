@@ -50,15 +50,30 @@ function allowedConcurrency() {
   return currentLoad() < LOAD_LINE ? MAX_CONCURRENCY : 1;
 }
 
-// decide the engine for a WHOLE album (locked once, never mixed)
-async function pickEngineForAlbum() {
+// decide the engine for a WHOLE album and LOCK it (persisted on the album row).
+// Once an album has indexed its first photo with an engine, that engine is reused
+// forever — even if more photos are added later when the backlog/mode differs.
+// This is what prevents mixing incompatible local + AWS face data in one album.
+async function resolveAlbumEngine(albumId) {
+  // already locked? reuse it, no matter the current mode/backlog
+  try {
+    const { rows } = await query('SELECT face_engine_lock FROM albums WHERE id=$1', [albumId]);
+    if (rows[0]?.face_engine_lock) return rows[0].face_engine_lock;
+  } catch { /* fall through to pick */ }
+
+  // not locked yet → pick per the admin's mode, then persist the choice
   let mode;
   try { mode = await getSetting('aws_mode', 'aws_off'); } catch { mode = 'aws_off'; }
-  if (mode === 'aws_on') return 'aws';
-  if (mode === 'aws_off') return 'local';
-  // safety_net: overflow to AWS only when backlog is deep
-  const depth = await backlogDepth();
-  return depth > BACKLOG_AWS_LINE ? 'aws' : 'local';
+  let engine;
+  if (mode === 'aws_on') engine = 'aws';
+  else if (mode === 'aws_off') engine = 'local';
+  else {
+    // safety_net: overflow to AWS only when backlog is deep — decided ONCE, then locked
+    const depth = await backlogDepth();
+    engine = depth > BACKLOG_AWS_LINE ? 'aws' : 'local';
+  }
+  try { await query('UPDATE albums SET face_engine_lock=$1 WHERE id=$2 AND face_engine_lock IS NULL', [engine, albumId]); } catch { /* best effort */ }
+  return engine;
 }
 
 export function enqueueAlbum(albumId) {
@@ -95,7 +110,7 @@ async function indexPhoto(p, engine) {
 }
 
 async function indexOneAlbum(albumId) {
-  const engine = await pickEngineForAlbum();   // 🔒 locked for this whole album
+  const engine = await resolveAlbumEngine(albumId);   // 🔒 locked & persisted for this whole album
 
   let photos;
   try {

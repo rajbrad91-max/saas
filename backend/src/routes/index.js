@@ -27,7 +27,11 @@ router.get('/settings/platform', requireAuth, requireSuperAdmin, async (req, res
 // 🔄 Super admin: reset ALL face indexing (for engine switch → re-index)
 router.post('/settings/reindex-all', requireAuth, requireSuperAdmin, async (req, res) => {
   try {
-    const r = await query('UPDATE photos SET faces=NULL, face_count=0, face_indexed=false');
+    const r = await query('UPDATE photos SET faces=NULL, face_count=0, face_indexed=false, face_engine=NULL');
+    // clear per-album engine locks + cluster flags so each album re-picks fresh on next index
+    await query('UPDATE albums SET face_engine_lock=NULL, faces_clustered=false');
+    await query('DELETE FROM photo_faces');
+    await query('DELETE FROM face_clusters');
     res.json({ ok: true, reset: r.rowCount });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
