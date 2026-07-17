@@ -15,21 +15,21 @@ export function fmtTime(t) {
 }
 
 function getToken() {
-  return localStorage.getItem('vowflo_token');
+  return localStorage.getItem('iwopo_token');
 }
 
 export function setSession(token, user) {
-  localStorage.setItem('vowflo_token', token);
-  localStorage.setItem('vowflo_user', JSON.stringify(user));
+  localStorage.setItem('iwopo_token', token);
+  localStorage.setItem('iwopo_user', JSON.stringify(user));
 }
 
 export function clearSession() {
-  localStorage.removeItem('vowflo_token');
-  localStorage.removeItem('vowflo_user');
+  localStorage.removeItem('iwopo_token');
+  localStorage.removeItem('iwopo_user');
 }
 
 export function getUser() {
-  const raw = localStorage.getItem('vowflo_user');
+  const raw = localStorage.getItem('iwopo_user');
   return raw ? JSON.parse(raw) : null;
 }
 
@@ -131,7 +131,7 @@ export const api = {
   uploadLogo: async (file) => {
     const fd = new FormData();
     fd.append('logo', file);
-    const token = localStorage.getItem('vowflo_token');
+    const token = localStorage.getItem('iwopo_token');
     const res = await fetch('/api/me/logo', {
       method: 'POST',
       headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -183,7 +183,7 @@ export const api = {
   uploadAlbumCover: async (albumId, file) => {
     const fd = new FormData();
     fd.append('cover', file);
-    const token = localStorage.getItem('vowflo_token');
+    const token = localStorage.getItem('iwopo_token');
     const res = await fetch(`/api/albums/${albumId}/cover`, {
       method: 'POST', headers: token ? { Authorization: `Bearer ${token}` } : {}, body: fd,
     });
@@ -199,7 +199,7 @@ export const api = {
     const fd = new FormData();
     [...files].forEach(f => fd.append('photos', f));
     if (eventId) fd.append('event_id', eventId);
-    const token = localStorage.getItem('vowflo_token');
+    const token = localStorage.getItem('iwopo_token');
     const res = await fetch(`/api/albums/${albumId}/photos`, {
       method: 'POST',
       headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -217,7 +217,7 @@ export const api = {
   faceSearch: async (albumId, selfieFile) => {
     const fd = new FormData();
     fd.append('selfie', selfieFile);
-    const token = localStorage.getItem('vowflo_token');
+    const token = localStorage.getItem('iwopo_token');
     const res = await fetch(`/api/albums/${albumId}/face-search`, {
       method: 'POST',
       headers: token ? { Authorization: `Bearer ${token}` } : {},

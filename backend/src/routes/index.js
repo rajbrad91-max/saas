@@ -92,7 +92,7 @@ function priceFor(row, geo, baseField = 'price') {
 }
 
 router.get('/hello', (req, res) => {
-  res.json({ message: 'Hello from Vowflo API! 👋' });
+  res.json({ message: 'Hello from iwopo API! 👋' });
 });
 
 // 🔔 Super admin: live notification counts (topbar icons)

@@ -51,7 +51,7 @@ export default function Dashboard({ onLogout }) {
   return (
     <div className={`sa-wrap ${collapsed ? 'sa-collapsed' : ''}`} data-sa-theme={saTheme}>
       <aside className={`sa-sidebar ${sidebarOpen ? 'show' : ''}`}>
-        <div className="sa-brand"><span className="hex">⬡</span><div>VOWFLO<br /><small>SUPER</small></div></div>
+        <div className="sa-brand"><span className="hex">⬡</span><div>IWOPO<br /><small>SUPER</small></div></div>
         <div className="sa-collapse-row" onClick={() => setCollapsed(c => !c)} title="Auto-hide sidebar">
           <span className="sa-collapse-lbl">Auto-hide</span>
           <span className={`sa-collapse-switch ${collapsed ? 'on' : ''}`} />
@@ -1522,7 +1522,7 @@ function SettingsView({ saTheme, setSaTheme, user }) {
           ))}
         </div>
       </div>
-      <SettingRow name="Platform Name" desc="Shown across all panels" input="Vowflo" />
+      <SettingRow name="Platform Name" desc="Shown across all panels" input="iwopo" />
       <SettingRow name="Default Trial Length" desc="Days before billing starts" input="30" small />
       <SettingRow name="Maintenance Mode" desc="Take platform offline" toggle />
       <SettingRow name="Auto-suspend Past Due" desc="After 7 days unpaid" toggle on />
@@ -1554,7 +1554,7 @@ function AdminsView({ user }) {
         <table>
           <thead><tr><th>Name</th><th>Email</th><th>Role</th><th></th></tr></thead>
           <tbody>
-            <tr><td className="biz">{user?.name} (you)</td><td>{user?.email || 'raj@vowflo.com'}</td><td><span className="sa-badge active">super_admin</span></td><td><button className="sa-view-btn">Edit</button></td></tr>
+            <tr><td className="biz">{user?.name} (you)</td><td>{user?.email || 'raj@iwopo.com'}</td><td><span className="sa-badge active">super_admin</span></td><td><button className="sa-view-btn">Edit</button></td></tr>
           </tbody>
         </table>
       </div>

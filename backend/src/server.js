@@ -52,11 +52,11 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/portal', portalRoutes);
 
 app.get('/', (req, res) => {
-  res.json({ status: 'ok', service: 'Vowflo API', version: '2.0.0' });
+  res.json({ status: 'ok', service: 'iwopo API', version: '2.0.0' });
 });
 
 app.use((req, res) => res.status(404).json({ error: 'Not found' }));
 
 app.listen(PORT, () => {
-  console.log(`🚀 Vowflo API running on http://localhost:${PORT}`);
+  console.log(`🚀 iwopo API running on http://localhost:${PORT}`);
 });

@@ -783,7 +783,7 @@ function AlbumDetail({ albumId, onBack }) {
   const sentinelRef = useRef(null);
   const workerRef = useRef(null);
   const visibleLenRef = useRef(0); // holds current visible-photo count for the keyboard handler
-  const token = localStorage.getItem('vowflo_token');
+  const token = localStorage.getItem('iwopo_token');
 
   // clean up the upload worker + any object URLs on unmount
   useEffect(() => () => {

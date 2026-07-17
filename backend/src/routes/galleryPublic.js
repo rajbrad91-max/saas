@@ -14,7 +14,7 @@ import { albumClusters, clusterPhotoIds } from '../lib/faceCluster.js';
 
 const require = createRequire(import.meta.url);
 const archiver = require('archiver');
-const upload = multer({ dest: '/tmp/vowflo-selfie' });
+const upload = multer({ dest: '/tmp/iwopo-selfie' });
 
 // 📶 photos read in filename order, case-insensitive, with digit runs zero-padded
 // so they compare numerically (IMG_2 before IMG_10).

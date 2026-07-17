@@ -83,7 +83,7 @@ export default function Selling({ onSignup, onGoLogin }) {
   return (
     <div className="sl">
       <nav className="sl-nav">
-        <div className="sl-logo"><span className="hex">⬡</span> Vowflo</div>
+        <div className="sl-logo"><span className="hex">⬡</span> iwopo</div>
         <div className="sl-nav-links">
           <a href="#packages">Packages</a>
           <a href="#services">Services</a>
@@ -229,7 +229,7 @@ export default function Selling({ onSignup, onGoLogin }) {
       </section>
 
       <footer className="sl-foot">
-        <div className="sl-logo"><span className="hex">⬡</span> Vowflo</div>
+        <div className="sl-logo"><span className="hex">⬡</span> iwopo</div>
         <div className="sl-foot-sub">Built for wedding vendors. © {new Date().getFullYear()}</div>
       </footer>
     </div>

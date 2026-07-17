@@ -1,4 +1,4 @@
-# ⬡ Vowflo — Multi-Tenant SaaS
+# ⬡ iwopo — Multi-Tenant SaaS
 
 ## 📁 Structure
 ```
@@ -16,7 +16,7 @@ vowflo/
 5. Run: `npm run dev` → http://localhost:3001
 
 ## 🔑 Default Login
-- Email: `raj@vowflo.com`
+- Email: `raj@iwopo.com`
 - Password: `changeme123` (⚠️ change after first login)
 
 ## 🔒 Multi-Tenancy

@@ -5,13 +5,13 @@ import { requireAuth } from '../middleware/auth.js';
 
 const router = express.Router();
 
-// 🏢 Platform (Vowflo) SMTP — set real creds in env before launch
+// 🏢 Platform (iwopo) SMTP — set real creds in env before launch
 const PLATFORM = {
   host: process.env.PLATFORM_SMTP_HOST || '',
   port: Number(process.env.PLATFORM_SMTP_PORT || 587),
   user: process.env.PLATFORM_SMTP_USER || '',
   pass: process.env.PLATFORM_SMTP_PASS || '',
-  from: process.env.PLATFORM_FROM || 'noreply@vowflo.com',
+  from: process.env.PLATFORM_FROM || 'noreply@iwopo.com',
 };
 
 function vid(req) {
@@ -129,7 +129,7 @@ router.post('/lead/:leadId', requireAuth, async (req, res) => {
     if (!t) return res.status(400).json({ error: 'no_transport', message: 'No email server configured yet. Add SMTP creds or platform SMTP pending. ⚙️' });
 
     const fromEmail = s.mode === 'smtp' ? (s.from_email || s.smtp_user) : PLATFORM.from;
-    const fromName = s.from_name || 'Vowflo';
+    const fromName = s.from_name || 'iwopo';
     await t.sendMail({ from: `"${fromName}" <${fromEmail}>`, to: lead.email, subject, text: body });
     res.json({ ok: true, sent_to: lead.email });
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -142,7 +142,7 @@ export async function sendLeadEmail(req, lead, subject, body) {
   const t = transporterFor(s);
   if (!t) throw new Error('No email server configured yet. Add SMTP creds in Settings → Email ⚙️');
   const fromEmail = s.mode === 'smtp' ? (s.from_email || s.smtp_user) : PLATFORM.from;
-  const fromName = s.from_name || 'Vowflo';
+  const fromName = s.from_name || 'iwopo';
   await t.sendMail({ from: `"${fromName}" <${fromEmail}>`, to: lead.email, subject, text: body });
 }
 
@@ -156,7 +156,7 @@ export async function notifyNewLead(lead) {
     if (!t) return;
     const fromEmail = s.mode === 'smtp' ? (s.from_email || s.smtp_user) : PLATFORM.from;
     await t.sendMail({
-      from: `"Vowflo" <${fromEmail}>`, to,
+      from: `"iwopo" <${fromEmail}>`, to,
       subject: `🎉 New inquiry from ${lead.name || 'a client'}`,
       text: `You have a new lead!\n\nName: ${lead.name}\nEmail: ${lead.email}\nEvent: ${lead.event_type || '-'}\nDate: ${lead.event_date || '-'}\n\nLog in to view: https://iwopo.com`,
     });

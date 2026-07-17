@@ -5,11 +5,11 @@ const router = express.Router();
 
 // ── EDIT YOUR POLL HERE ──────────────────────────────
 const POLL_TITLE = 'Which brand name do you like best?';
-const OPTIONS = ['Vendlio.ai', 'iwopo.com', 'Vowflo.com'];
+const OPTIONS = ['Vendlio.ai', 'iwopo.com', 'iwopo.com'];
 const HINTS = {
   'Vendlio.ai': 'Relatable (vendors)',
   'iwopo.com': 'Unique (no built-in meaning)',
-  'Vowflo.com': 'Relatable, but easy to misspell',
+  'iwopo.com': 'Relatable, but easy to misspell',
 };
 const RESULTS_PASSWORD = 'xyz.123';
 // ─────────────────────────────────────────────────────
