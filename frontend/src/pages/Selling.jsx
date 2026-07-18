@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { api, setSession } from '../lib/api';
+import PasswordInput from '../components/PasswordInput';
 import './selling.css';
 
 /* reveal-on-scroll */
@@ -485,7 +486,7 @@ export default function Selling({ onSignup, onGoLogin }) {
               <label>Email</label>
               <input value={form.email} onChange={e => set('email', e.target.value)} placeholder="you@studio.com" />
               <label>Password</label>
-              <input type="password" value={form.password} onChange={e => set('password', e.target.value)}
+              <PasswordInput value={form.password} onChange={e => set('password', e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleSignup()} placeholder="••••••••" />
               {error && <div className="sl-err">⚠️ {error}</div>}
               <button className="sl-cta full" onClick={handleSignup} disabled={loading}>

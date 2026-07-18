@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import PasswordInput from '../components/PasswordInput';
 import './gallery.css';
 
 const API = '/api/g';
@@ -283,7 +284,7 @@ export default function PublicGallery({ token, embedded, onBack }) {
           <div className="pg-eyebrow">{theme.title_text || 'Private gallery'}</div>
           <h1 className="pg-gate-title">{m.title}</h1>
           <form onSubmit={unlock} className="pg-gate-form">
-            <input className="pg-input" type="password" placeholder="Password" value={pw} onChange={e => setPw(e.target.value)} autoFocus />
+            <PasswordInput className="pg-input" placeholder="Password" value={pw} onChange={e => setPw(e.target.value)} autoFocus />
             <button className="pg-btn" type="submit" disabled={authing}>{authing ? 'Checking…' : 'Enter gallery'}</button>
           </form>
           {authErr && <div className="pg-err">{authErr}</div>}

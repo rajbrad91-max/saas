@@ -49,6 +49,12 @@ export const api = {
     request('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
   signup: (businessName, email, password) =>
     request('/auth/signup', { method: 'POST', body: JSON.stringify({ businessName, email, password }) }),
+  forgotPassword: (email) =>
+    request('/auth/forgot', { method: 'POST', body: JSON.stringify({ email }) }),
+  resetPassword: (token, password) =>
+    request('/auth/reset', { method: 'POST', body: JSON.stringify({ token, password }) }),
+  changePassword: (current, next) =>
+    request('/auth/change-password', { method: 'POST', body: JSON.stringify({ current, next }) }),
   vendors: () => request('/vendors'),
   adminCounts: () => request('/admin/counts'),
   markCountSeen: (group) => request(`/admin/counts/${group}/seen`, { method: 'PUT' }),

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { api, getUser, clearSession } from '../lib/api';
 import { fmtTime } from '../lib/api';
 import { PROFESSIONS, LeadFormBody } from './InquiryForm';
+import PasswordInput from '../components/PasswordInput';
 import './inquiry.css';
 import './vendor.css';
 
@@ -2596,12 +2597,12 @@ function SettingsView({ user }) {
 
         <label style={{ fontSize: 13, color: '#9fb3b0' }}>📧 Change email</label>
         <input style={box} value={em.email} onChange={e => setEm({ ...em, email: e.target.value })} placeholder="new@email.com" />
-        <input style={box} type="password" value={em.password} onChange={e => setEm({ ...em, password: e.target.value })} placeholder="Current password" />
+        <PasswordInput style={box} value={em.password} onChange={e => setEm({ ...em, password: e.target.value })} placeholder="Current password" />
         <button className="refresh" onClick={saveEmail} style={{ marginTop: 8 }}>Update email</button>
 
         <label style={{ fontSize: 13, color: '#9fb3b0', display: 'block', marginTop: 18 }}>🔑 Change password</label>
-        <input style={box} type="password" value={pw.current} onChange={e => setPw({ ...pw, current: e.target.value })} placeholder="Current password" />
-        <input style={box} type="password" value={pw.next} onChange={e => setPw({ ...pw, next: e.target.value })} placeholder="New password (min 6)" />
+        <PasswordInput style={box} value={pw.current} onChange={e => setPw({ ...pw, current: e.target.value })} placeholder="Current password" />
+        <PasswordInput style={box} value={pw.next} onChange={e => setPw({ ...pw, next: e.target.value })} placeholder="New password (min 6)" />
         <button className="refresh" onClick={savePw} style={{ marginTop: 8 }}>Change password</button>
       </div>
       )}
@@ -2652,7 +2653,7 @@ function EmailSetup() {
           <input style={box} placeholder="SMTP host (e.g. smtp.gmail.com)" value={s.smtp_host || ''} onChange={e => setS({ ...s, smtp_host: e.target.value })} />
           <input style={box} type="number" placeholder="Port (587)" value={s.smtp_port || 587} onChange={e => setS({ ...s, smtp_port: Number(e.target.value) })} />
           <input style={box} placeholder="SMTP username" value={s.smtp_user || ''} onChange={e => setS({ ...s, smtp_user: e.target.value })} />
-          <input style={box} type="password" placeholder="SMTP password" value={s.smtp_pass || ''} onChange={e => setS({ ...s, smtp_pass: e.target.value })} />
+          <PasswordInput style={box} placeholder="SMTP password" value={s.smtp_pass || ''} onChange={e => setS({ ...s, smtp_pass: e.target.value })} />
           <input style={box} placeholder="From name (e.g. Sunny Studios)" value={s.from_name || ''} onChange={e => setS({ ...s, from_name: e.target.value })} />
           <input style={box} placeholder="From email" value={s.from_email || ''} onChange={e => setS({ ...s, from_email: e.target.value })} />
         </div>

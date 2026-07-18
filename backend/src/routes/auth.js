@@ -1,10 +1,13 @@
 import express from 'express';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import { query } from '../config/db.js';
-import { signToken } from '../middleware/auth.js';
+import { signToken, requireAuth } from '../middleware/auth.js';
+import { sendPlatformEmail } from './email.js';
 
 const router = express.Router();
 const TRIAL_LIMIT = 2; // max trials per IP
+const APP_URL = process.env.APP_URL || 'https://iwopo.com';
 
 // Get the real client IP (behind nginx proxy)
 function clientIp(req) {
@@ -95,6 +98,79 @@ router.post('/signup', async (req, res) => {
   }
 
   res.status(201).json({ token: signToken(u.rows[0]), user: u.rows[0] });
+});
+
+// POST /api/auth/forgot  → email a reset link (always responds ok, to avoid leaking which emails exist)
+router.post('/forgot', async (req, res) => {
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ error: 'Email required' });
+  try {
+    const { rows } = await query('SELECT id, name, role FROM users WHERE email=$1', [email]);
+    const user = rows[0];
+    // Only send for real accounts; still return ok either way.
+    if (user) {
+      const token = crypto.randomBytes(32).toString('hex');
+      const hash = crypto.createHash('sha256').update(token).digest('hex');
+      await query(
+        `INSERT INTO password_reset_tokens (user_id, token_hash, expires_at)
+         VALUES ($1,$2, NOW() + INTERVAL '1 hour')`,
+        [user.id, hash]
+      );
+      const link = `${APP_URL}/reset-password?token=${token}`;
+      try {
+        await sendPlatformEmail(
+          email,
+          'Reset your iwopo password',
+          `Hi ${user.name || ''},\n\nReset your password using this link (valid for 1 hour):\n${link}\n\nIf you didn't request this, you can ignore this email.`,
+          `<p>Hi ${user.name || ''},</p><p>Reset your password using the link below (valid for 1 hour):</p><p><a href="${link}">Reset my password</a></p><p>If you didn't request this, you can ignore this email.</p>`
+        );
+      } catch (e) {
+        // Platform email not configured yet → surface a clear message in dev
+        if (e.code === 'no_platform_smtp')
+          return res.status(200).json({ ok: true, pending: true, message: 'Reset recorded, but platform email is not set up yet. ⚙️' });
+        throw e;
+      }
+    }
+    res.json({ ok: true, message: 'If that email exists, a reset link is on its way. 📬' });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// POST /api/auth/reset  → set a new password using a valid token
+router.post('/reset', async (req, res) => {
+  const { token, password } = req.body;
+  if (!token || !password) return res.status(400).json({ error: 'Token and new password required' });
+  if (password.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters' });
+  try {
+    const hash = crypto.createHash('sha256').update(token).digest('hex');
+    const { rows } = await query(
+      `SELECT id, user_id FROM password_reset_tokens
+       WHERE token_hash=$1 AND used_at IS NULL AND expires_at > NOW()`,
+      [hash]
+    );
+    const row = rows[0];
+    if (!row) return res.status(400).json({ error: 'This reset link is invalid or has expired.' });
+    const newHash = await bcrypt.hash(password, 10);
+    await query('UPDATE users SET password_hash=$1 WHERE id=$2', [newHash, row.user_id]);
+    await query('UPDATE password_reset_tokens SET used_at=NOW() WHERE id=$1', [row.id]);
+    res.json({ ok: true, message: 'Password updated — you can log in now. ✅' });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// POST /api/auth/change-password  → logged-in user changes own password (current + new)
+router.post('/change-password', requireAuth, async (req, res) => {
+  const { current, next } = req.body;
+  if (!current || !next) return res.status(400).json({ error: 'Current and new password required' });
+  if (next.length < 6) return res.status(400).json({ error: 'New password must be at least 6 characters' });
+  try {
+    const { rows } = await query('SELECT password_hash FROM users WHERE id=$1', [req.user.id]);
+    const u = rows[0];
+    if (!u) return res.status(404).json({ error: 'User not found' });
+    const ok = await bcrypt.compare(current, u.password_hash);
+    if (!ok) return res.status(401).json({ error: 'Current password is incorrect' });
+    const newHash = await bcrypt.hash(next, 10);
+    await query('UPDATE users SET password_hash=$1 WHERE id=$2', [newHash, req.user.id]);
+    res.json({ ok: true, message: 'Password changed. 🔒' });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 export default router;

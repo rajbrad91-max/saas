@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import PasswordInput from '../components/PasswordInput';
 import './vote.css';
 
 const API = '/api/poll';
@@ -66,7 +67,7 @@ export default function Vote() {
             {!stats ? (
               <form onSubmit={loadStats}>
                 <div className="vote-pw-row">
-                  <input className="vote-pw" type="password" placeholder="Enter password" value={pw} onChange={e => setPw(e.target.value)} autoFocus />
+                  <PasswordInput className="vote-pw" placeholder="Enter password" value={pw} onChange={e => setPw(e.target.value)} autoFocus />
                   <button className="vote-pw-btn" type="submit">View</button>
                 </div>
                 {pwErr && <div className="vote-pw-err">⚠️ {pwErr}</div>}

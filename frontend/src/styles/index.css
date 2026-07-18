@@ -40,6 +40,10 @@ body { font-family:'Inter',-apple-system,sans-serif; background:var(--bg); color
 .login-btn:hover { background:var(--teal-2); }
 .login-btn:disabled { opacity:0.6; cursor:default; }
 .login-error { margin-top:16px; padding:10px 14px; background:#fb718522; color:var(--red); border-radius:10px; font-size:13px; }
+.login-notice { margin-top:16px; padding:10px 14px; background:#4ade8022; color:#16a34a; border-radius:10px; font-size:13px; }
+.login-forgot-row { margin-top:16px; text-align:center; }
+.login-forgot-link { color:var(--teal); font-size:13px; cursor:pointer; }
+.login-forgot-link:hover { text-decoration:underline; }
 
 /* DASHBOARD */
 .dash { display:flex; min-height:100vh; }

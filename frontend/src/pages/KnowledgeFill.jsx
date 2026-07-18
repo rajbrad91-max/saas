@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import PasswordInput from '../components/PasswordInput';
 import './knowledge.css';
 
 const API = '/api/chatbot';
@@ -73,7 +74,7 @@ export default function KnowledgeFill({ token }) {
           <h1 className="kf-title">{meta.business_name}</h1>
           <div className="kf-sub">Enter your access code to fill in your details.</div>
           <form onSubmit={unlock} className="kf-gate-form">
-            <input className="kf-input" type="password" placeholder="Access code" value={code} onChange={e => setCode(e.target.value)} autoFocus />
+            <PasswordInput className="kf-input" placeholder="Access code" value={code} onChange={e => setCode(e.target.value)} autoFocus />
             <button className="kf-btn" type="submit">🔓 Continue</button>
           </form>
           {codeErr && <div className="kf-err">⚠️ {codeErr}</div>}

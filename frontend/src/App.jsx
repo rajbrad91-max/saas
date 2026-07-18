@@ -13,6 +13,7 @@ import PublicGallery from './pages/PublicGallery';
 import VendorGallery from './pages/VendorGallery';
 import Vote from './pages/Vote';
 import KnowledgeFill from './pages/KnowledgeFill';
+import ResetPassword from './pages/ResetPassword';
 import { getUser } from './lib/api';
 
 export default function App() {
@@ -22,6 +23,12 @@ export default function App() {
   // 🌐 Public inquiry route: /inquiry/:vendorId  (no login needed)
   const m = window.location.pathname.match(/^\/inquiry\/(\d+)/);
   if (m) return <InquiryForm vendorId={m[1]} />;
+
+  // 🔑 Password reset: /reset-password?token=…
+  if (window.location.pathname.match(/^\/reset-password\/?$/)) {
+    const token = new URLSearchParams(window.location.search).get('token') || '';
+    return <ResetPassword token={token} />;
+  }
 
   // 🗳️ Voting page: /vote
   if (window.location.pathname.match(/^\/vote\/?$/)) return <Vote />;

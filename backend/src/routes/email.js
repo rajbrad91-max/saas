@@ -163,4 +163,23 @@ export async function notifyNewLead(lead) {
   } catch { /* never break lead creation over email */ }
 }
 
+// 🏢 platform transporter (uses env PLATFORM_SMTP_* — set before launch)
+function platformTransporter() {
+  if (PLATFORM.host && PLATFORM.user) {
+    return nodemailer.createTransport({
+      host: PLATFORM.host, port: PLATFORM.port, secure: PLATFORM.port === 465,
+      auth: { user: PLATFORM.user, pass: PLATFORM.pass },
+    });
+  }
+  return null;
+}
+
+// 📤 send a platform-level email (password resets, system notices).
+// Throws { code:'no_platform_smtp' } when env creds aren't set yet.
+export async function sendPlatformEmail(to, subject, text, html) {
+  const t = platformTransporter();
+  if (!t) { const e = new Error('Platform email is not configured yet.'); e.code = 'no_platform_smtp'; throw e; }
+  await t.sendMail({ from: `"iwopo" <${PLATFORM.from}>`, to, subject, text, html });
+}
+
 export default router;
