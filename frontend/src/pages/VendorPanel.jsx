@@ -1061,7 +1061,10 @@ function AlbumDetail({ albumId, onBack }) {
           {events.map(ev => {
             const n = photos.filter(p => String(p.event_id) === String(ev.id)).length;
             return (
-              <button key={ev.id} className={`pg-ev ${String(activeEvent) === String(ev.id) ? 'on' : ''}`} onClick={() => setActiveEvent(ev.id)}>{ev.name} ({n})</button>
+              <button key={ev.id} className={`pg-ev ${String(activeEvent) === String(ev.id) ? 'on' : ''}`} onClick={() => setActiveEvent(ev.id)}>
+                <span className="pg-ev-name">{ev.name}</span>
+                <span className="pg-ev-count">{n}</span>
+              </button>
             );
           })}
         </div>
