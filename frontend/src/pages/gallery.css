@@ -310,8 +310,24 @@
 }
 .pg-scene:hover { color: var(--pg-head); }
 .pg-scene.is-on { color: var(--pg-head); border-bottom-color: var(--pg-accent); }
+/* Favorites + Download sit together, pinned to the right of the event bar */
+.pg-scene-acts { margin-left: auto; display: flex; align-items: center; gap: 22px; }
+.pg-scene-fav {
+  background: none; border: none;
+  padding: 0 0 12px;
+  color: var(--pg-sub);
+  font-family: var(--pg-bfont);
+  font-size: 11px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  border-bottom: 1px solid transparent;
+  margin-bottom: -1px;
+  transition: color .16s, border-color .16s;
+}
+.pg-scene-fav:hover { color: var(--pg-head); }
+.pg-scene-fav.is-on { color: #d9a441; border-bottom-color: #d9a441; }
 .pg-scene-dl {
-  margin-left: auto;
   background: none;
   border: none;
   padding: 0 0 12px;

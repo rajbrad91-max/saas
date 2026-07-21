@@ -243,6 +243,21 @@ export default function PublicGallery({ token, embedded, onBack }) {
     });
   }
 
+  // ⭐ the "Favorites" button in the event bar. Acts like a light login + toggle:
+  //  · view already on  → turn off (show all)
+  //  · email known      → reload their saved list from the server, show favorites
+  //  · no email yet     → open the email modal (in "view" mode, no pending star)
+  async function openFavorites() {
+    if (favOnly) { setFavOnly(false); return; }
+    if (!favEmail) { setPendingFav(null); setFavErr(''); setFavEmailInput(''); setFavModalOpen(true); return; }
+    try {
+      const r = await fetch(`${API}/${token}/favorites?vt=${session.vt}&email=${encodeURIComponent(favEmail)}`);
+      if (r.ok) { const d = await r.json(); setFavs(new Set(d.photo_ids || [])); }
+    } catch { /* keep current favs */ }
+    setPickedOnly(false);
+    setFavOnly(true);
+  }
+
   // client submitted their email in the modal → remember it, save the pending star
   async function submitFavEmail(e) {
     e?.preventDefault();
@@ -256,7 +271,13 @@ export default function PublicGallery({ token, embedded, onBack }) {
       const r = await fetch(`${API}/${token}/favorites?vt=${session.vt}&email=${encodeURIComponent(email)}`);
       if (r.ok) { const d = await r.json(); existing = new Set(d.photo_ids || []); }
     } catch { /* ignore */ }
-    if (pendingFav != null) { existing.add(pendingFav); saveFav(pendingFav, email, true); }
+    if (pendingFav != null) {
+      // opened by tapping a star → add that star
+      existing.add(pendingFav); saveFav(pendingFav, email, true);
+    } else {
+      // opened via the "Favorites" button → switch into favorites view (resume list)
+      setPickedOnly(false); setFavOnly(true);
+    }
     setFavs(existing);
     setFavModalOpen(false);
     setPendingFav(null);
@@ -433,8 +454,8 @@ export default function PublicGallery({ token, embedded, onBack }) {
         <div className="pg-modal" onClick={() => { setFavModalOpen(false); setPendingFav(null); }}>
           <form className="pg-modal-card" onClick={e => e.stopPropagation()} onSubmit={submitFavEmail}>
             <button type="button" className="pg-modal-x" onClick={() => { setFavModalOpen(false); setPendingFav(null); }} title="Close">✕</button>
-            <h2 className="pg-modal-title">Save your favorites</h2>
-            <p className="pg-modal-sub">Enter your email so your favorites are saved — you can come back to them anytime, on any device.</p>
+            <h2 className="pg-modal-title">{pendingFav != null ? 'Save your favorites' : 'View your favorites'}</h2>
+            <p className="pg-modal-sub">Enter your email to {pendingFav != null ? 'save your favorites' : 'see the favorites you saved'} — your list is kept safe and follows you on any device.</p>
             <input
               className="pg-input"
               type="email"
@@ -455,11 +476,10 @@ export default function PublicGallery({ token, embedded, onBack }) {
 
       {selfieMsg && <div className="pg-note">{selfieMsg}</div>}
 
-      {(onBack || showScenes) && (
+      {(onBack || session.events.length > 0) && (
         <nav className="pg-scenes">
           {onBack && <button className="pg-back" onClick={onBack}>← Back</button>}
-          {showScenes && <>
-          {session.events.map(ev => {
+          {showScenes && session.events.map(ev => {
             const evCount = allPhotos.filter(p => String(p.event_id) === String(ev.id)).length;
             return (
               <button
@@ -470,10 +490,18 @@ export default function PublicGallery({ token, embedded, onBack }) {
               >{ev.name}</button>
             );
           })}
-          <button className="pg-scene-dl" onClick={() => downloadAll(activeEvent)} disabled={zipBusy === activeEvent} title="Download these photos in a Zip file">
-            {zipBusy === activeEvent ? 'Preparing…' : `Download ${session.events.find(ev => String(ev.id) === String(activeEvent))?.name || 'event'}`}
-          </button>
-          </>}
+          {session.events.length > 0 && (
+            <div className="pg-scene-acts">
+              <button
+                className={`pg-scene-fav ${favOnly ? 'is-on' : ''}`}
+                onClick={openFavorites}
+                title={favOnly ? 'Showing your favorites — click to show all' : 'View your favorites (enter your email)'}
+              >⭐ Favorites</button>
+              <button className="pg-scene-dl" onClick={() => downloadAll(activeEvent)} disabled={zipBusy === activeEvent} title="Download these photos in a Zip file">
+                {zipBusy === activeEvent ? 'Preparing…' : `Download ${session.events.find(ev => String(ev.id) === String(activeEvent))?.name || 'event'}`}
+              </button>
+            </div>
+          )}
         </nav>
       )}
 
