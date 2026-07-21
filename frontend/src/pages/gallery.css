@@ -325,13 +325,21 @@
 .pg-grid {
   display: grid;
   gap: 8px;
-  padding: 30px 28px 120px;
+  padding: 30px 28px 24px;
   /* ~5 across on a laptop; auto-fits to any width, so folds/tablets adapt too */
   grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
   grid-auto-rows: 175px;
   /* 🔑 backfill the holes a tall portrait leaves at the end of a row.
      This is what PerfectPoses is missing — it's why they get dead space. */
   grid-auto-flow: dense;
+}
+.pg-grid-end {
+  text-align: center;
+  color: var(--pg-sub);
+  font-family: var(--pg-bfont);
+  font-size: 13px;
+  letter-spacing: .02em;
+  padding: 4px 28px 90px;
 }
 .pg-tile {
   position: relative;

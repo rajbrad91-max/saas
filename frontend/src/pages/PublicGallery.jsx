@@ -359,14 +359,18 @@ export default function PublicGallery({ token, embedded, onBack }) {
         <nav className="pg-scenes">
           {onBack && <button className="pg-back" onClick={onBack}>← Back</button>}
           {showScenes && <>
-          {session.events.map(ev => (
-            <button
-              key={ev.id}
-              className={`pg-scene ${String(activeEvent) === String(ev.id) ? 'is-on' : ''}`}
-              onClick={() => setActiveEvent(ev.id)}
-            >{ev.name}</button>
-          ))}
-          <button className="pg-scene-dl" onClick={() => downloadAll(activeEvent)} disabled={zipBusy === activeEvent}>
+          {session.events.map(ev => {
+            const evCount = allPhotos.filter(p => String(p.event_id) === String(ev.id)).length;
+            return (
+              <button
+                key={ev.id}
+                className={`pg-scene ${String(activeEvent) === String(ev.id) ? 'is-on' : ''}`}
+                onClick={() => setActiveEvent(ev.id)}
+                title={`${evCount} photo${evCount === 1 ? '' : 's'} in ${ev.name}`}
+              >{ev.name}</button>
+            );
+          })}
+          <button className="pg-scene-dl" onClick={() => downloadAll(activeEvent)} disabled={zipBusy === activeEvent} title="Download these photos in a Zip file">
             {zipBusy === activeEvent ? 'Preparing…' : `Download ${session.events.find(ev => String(ev.id) === String(activeEvent))?.name || 'event'}`}
           </button>
           </>}
@@ -444,6 +448,10 @@ export default function PublicGallery({ token, embedded, onBack }) {
           </figure>
         ))}
       </div>
+
+      {photos.length > 0 && (
+        <div className="pg-grid-end">No more images to display. (Total Images: {photos.length})</div>
+      )}
 
       {nPicked > 0 && (
         <div className="pg-selbar">
