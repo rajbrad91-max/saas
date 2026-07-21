@@ -552,6 +552,9 @@
 
 /* ── DESKTOP COLLAPSE → icons only ── */
 .dash .sidebar { transition:width .22s ease, margin-left .26s ease; overflow:hidden; }
+/* keep the sidebar (and its Log out button) pinned to the viewport even when
+   the main content is very tall (e.g. an album with hundreds of photos) */
+.dash .sidebar { position: sticky; top: 0; align-self: flex-start; height: 100vh; height: 100svh; overflow-y: auto; }
 .dash.sidebar-collapsed .sidebar { width:66px; }
 .dash.sidebar-collapsed .nav-txt { display:none; }
 .dash.sidebar-collapsed .nav-group { opacity:0; }
