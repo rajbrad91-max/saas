@@ -397,7 +397,7 @@ function GalleriesView() {
   }
 
   function emptyAlbum() {
-    return { title: '', category: '', client_email: '', guest_password: '', admin_password: '', gallery_mode: '' };
+    return { title: '', category: '', client_email: '', guest_password: '', admin_password: '' };
   }
 
   useEffect(() => {
@@ -459,7 +459,6 @@ function GalleriesView() {
     setF({
       title: a.title || '', category: a.category || '', client_email: a.client_email || '',
       guest_password: a.guest_password || '', admin_password: a.admin_password || '',
-      gallery_mode: a.gallery_mode || '',
     });
     setCoverFile(null); setShowNew(true); setMsg('');
   }
@@ -565,13 +564,6 @@ function GalleriesView() {
             </div>
           </div>
 
-          <label className="lbl gal-set-lbl">📐 Layout for this album</label>
-          <select className="gal-input gal-mode-sel" value={f.gallery_mode || ''} onChange={e => setF({ ...f, gallery_mode: e.target.value })}>
-            <option value="">Use default ({(theme.default_mode || 'per_event') === 'per_client' ? 'Per client' : 'Per event'})</option>
-            <option value="per_event">🗂️ Per event</option>
-            <option value="per_client">👤 Per client (all events in one)</option>
-          </select>
-
           <div className="gal-form-foot">
             <button className="refresh gal-save" onClick={create}>{edit ? '💾 Save changes' : '✅ Create album'}</button>
             {edit && <button className="refresh gal-mini-send" onClick={() => openSend(edit)}>📧 Send Instructions</button>}
@@ -595,16 +587,6 @@ function GalleriesView() {
                 <div className="gal-set-link">
                   <input className="gal-input" readOnly value={galleryToken ? `${window.location.origin}/gallery/${galleryToken}` : 'Loading…'} onFocus={e => e.target.select()} />
                   <button className="refresh gal-copy-url" onClick={copyGalleryUrl} disabled={!galleryToken}>{copiedGallery ? '✅' : '🔗 Copy'}</button>
-                </div>
-
-                <label className="lbl gal-set-lbl">📐 Gallery layout (default for new albums)</label>
-                <div className="gal-mode-pick">
-                  <button className={`gal-mode ${(theme.default_mode || 'per_event') === 'per_event' ? 'on' : ''}`} onClick={() => setT('default_mode', 'per_event')}>
-                    🗂️ Per event<span>One album per event · separate logins</span>
-                  </button>
-                  <button className={`gal-mode ${theme.default_mode === 'per_client' ? 'on' : ''}`} onClick={() => setT('default_mode', 'per_client')}>
-                    👤 Per client<span>All events in one album · one login</span>
-                  </button>
                 </div>
 
                 <label className="lbl gal-set-lbl">🔑 Default password prefixes</label>
@@ -825,8 +807,8 @@ function AlbumDetail({ albumId, onBack }) {
   useEffect(() => { load(); }, [albumId]);
   function load() { api.album(albumId).then(d => {
     setAlbum(d.album); setPhotos(d.photos || []); setEvents(d.events || []);
-    // per-client: default to the first event (no "All" tab); non-per-client ignores activeEvent
-    if (d.album && d.album.gallery_mode === 'per_client' && (d.events || []).length > 0) {
+    // per-client: default to the first event (no "All" tab)
+    if ((d.events || []).length > 0) {
       setActiveEvent(prev => prev === 'all' ? d.events[0].id : prev);
     }
   }).catch(() => {}); }
@@ -848,7 +830,7 @@ function AlbumDetail({ albumId, onBack }) {
     return () => io.disconnect();
   }, [activeEvent, photos.length]);
 
-  const isPerClient = album && (album.gallery_mode === 'per_client');
+  const isPerClient = true; // per-client is the only gallery mode
 
   function onFiles(e) {
     const files = [...e.target.files];

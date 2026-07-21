@@ -26,7 +26,7 @@ const THEME_DEFAULTS = {
   heading_font: 'Playfair Display', body_font: 'Jost',
   bg_color: '#fbfbfa', heading_color: '#16161a', accent_color: '#1f6f6b', sub_color: '#8a8a8f',
   title_text: 'Private gallery', subtitle_text: 'Your photos, ready to view and download',
-  tagline_text: '', default_mode: 'per_event',
+  tagline_text: '',
 };
 async function getTheme(vendorId) {
   const { rows } = await query('SELECT * FROM gallery_theme WHERE vendor_id=$1', [vendorId]);
@@ -91,8 +91,7 @@ router.get('/:token', async (req, res) => {
     if (!a) return res.status(404).json({ error: 'Gallery not found' });
     const { rows: c } = await query('SELECT COUNT(*)::int AS n FROM photos WHERE album_id=$1', [a.id]);
     const theme = await getTheme(a.vendor_id);
-    const mode = a.gallery_mode || theme.default_mode || 'per_event';
-    res.json({ album: { title: a.title, category: a.category, cover: !!a.cover_photo, photo_count: c[0].n, id: a.id, token: a.public_token, mode }, theme });
+    res.json({ album: { title: a.title, category: a.category, cover: !!a.cover_photo, photo_count: c[0].n, id: a.id, token: a.public_token, mode: 'per_client' }, theme });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -122,17 +121,12 @@ router.post('/:token/auth', async (req, res) => {
       `SELECT id, filename, event_id, face_count FROM photos
        WHERE album_id=$1 ORDER BY ${NAT_ORDER}`, [a.id]);
     const theme = await getTheme(a.vendor_id);
-    const mode = a.gallery_mode || theme.default_mode || 'per_event';
-    // per-client mode: group photos under events
-    let events = [];
-    if (mode === 'per_client') {
-      const { rows: ev } = await query('SELECT id, name FROM album_events WHERE album_id=$1 ORDER BY sort_order, id', [a.id]);
-      events = ev;
-    }
+    // per-client: photos are always grouped under events
+    const { rows: events } = await query('SELECT id, name FROM album_events WHERE album_id=$1 ORDER BY sort_order, id', [a.id]);
     const faceReady = photos.some(p => (p.face_count || 0) > 0);
     const vt = makeViewToken(a.id, role);
     res.json({
-      role, vt, title: a.title, mode, theme, events, faceReady,
+      role, vt, title: a.title, mode: 'per_client', theme, events, faceReady,
       photos: photos.map(p => ({ id: p.id, name: p.filename, event_id: p.event_id, faces: p.face_count || 0 })),
     });
   } catch (e) { res.status(500).json({ error: e.message }); }

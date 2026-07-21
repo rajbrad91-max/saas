@@ -790,12 +790,6 @@
 .gal-color-row { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
 .gal-color { width: 38px; height: 30px; border: 1px solid var(--line); border-radius: 8px; background: none; cursor: pointer; padding: 2px; }
 .gal-theme-preview { margin-top: 16px; padding: 20px; border-radius: 12px; border: 1px solid var(--line); text-align: center; }
-.gal-mode-pick { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 6px; }
-.gal-mode { text-align: left; background: var(--panel-2); border: 1.5px solid var(--line); border-radius: 12px; padding: 12px 14px; cursor: pointer; color: var(--text); font-size: 14px; font-weight: 700; display: flex; flex-direction: column; gap: 4px; }
-.gal-mode span { font-size: 11px; font-weight: 400; color: var(--muted); }
-.gal-mode.on { border-color: #2dd4bf; background: #2dd4bf0d; color: #2dd4bf; }
-.gal-mode.on span { color: #2dd4bf; }
-.gal-mode-sel { margin-top: 6px; }
 @media (max-width: 760px) {
   .gal-set-cols { grid-template-columns: 1fr; gap: 18px; }
   .gal-set-modal-lg { max-width: 96vw; }

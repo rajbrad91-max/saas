@@ -96,7 +96,7 @@ const THEME_DEFAULTS = {
   heading_font: 'Playfair Display', body_font: 'Jost',
   bg_color: '#fbfbfa', heading_color: '#16161a', accent_color: '#1f6f6b', sub_color: '#8a8a8f',
   title_text: 'Private gallery', subtitle_text: 'Your photos, ready to view and download',
-  tagline_text: '', default_mode: 'per_event',
+  tagline_text: '',
 };
 
 // 🎨 gallery theme GET — per vendor
@@ -114,12 +114,12 @@ router.put('/theme', requireAuth, async (req, res) => {
   const t = { ...THEME_DEFAULTS, ...req.body };
   try {
     await query(
-      `INSERT INTO gallery_theme (vendor_id, heading_font, body_font, bg_color, heading_color, accent_color, sub_color, title_text, subtitle_text, tagline_text, default_mode)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+      `INSERT INTO gallery_theme (vendor_id, heading_font, body_font, bg_color, heading_color, accent_color, sub_color, title_text, subtitle_text, tagline_text)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
        ON CONFLICT (vendor_id) DO UPDATE SET
          heading_font=$2, body_font=$3, bg_color=$4, heading_color=$5, accent_color=$6, sub_color=$7,
-         title_text=$8, subtitle_text=$9, tagline_text=$10, default_mode=$11`,
-      [v, t.heading_font, t.body_font, t.bg_color, t.heading_color, t.accent_color, t.sub_color, t.title_text, t.subtitle_text, t.tagline_text, t.default_mode]);
+         title_text=$8, subtitle_text=$9, tagline_text=$10`,
+      [v, t.heading_font, t.body_font, t.bg_color, t.heading_color, t.accent_color, t.sub_color, t.title_text, t.subtitle_text, t.tagline_text]);
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -127,7 +127,7 @@ router.put('/theme', requireAuth, async (req, res) => {
 router.put('/:id', requireAuth, async (req, res) => {
   const v = vid(req);
   const { title, category, guest_username, guest_password, admin_username, admin_password,
-    client_email, exp_enabled, exp_from_date, exp_date, exp_notes, face_ai, gallery_mode } = req.body;
+    client_email, exp_enabled, exp_from_date, exp_date, exp_notes, face_ai } = req.body;
   try {
     const { rows: own } = await query('SELECT id FROM albums WHERE id=$1 AND vendor_id=$2', [req.params.id, v]);
     if (!own[0]) return res.status(404).json({ error: 'Not found' });
@@ -135,13 +135,12 @@ router.put('/:id', requireAuth, async (req, res) => {
       `UPDATE albums SET
         title=COALESCE($1,title), category=$2,
         guest_username=$3, guest_password=$4, admin_username=$5, admin_password=$6,
-        client_email=$7, exp_enabled=$8, exp_from_date=$9, exp_date=$10, exp_notes=$11, face_ai=$12,
-        gallery_mode=$13
-       WHERE id=$14 RETURNING *`,
+        client_email=$7, exp_enabled=$8, exp_from_date=$9, exp_date=$10, exp_notes=$11, face_ai=$12
+       WHERE id=$13 RETURNING *`,
       [title || null, category || null, guest_username || null, guest_password || null,
        admin_username || null, admin_password || null, client_email || null,
        !!exp_enabled, exp_from_date || null, exp_date || null, exp_notes || null, !!face_ai,
-       gallery_mode || null, req.params.id]);
+       req.params.id]);
     res.json({ album: rows[0] });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });

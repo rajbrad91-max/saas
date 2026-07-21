@@ -111,7 +111,7 @@ export default function PublicGallery({ token, embedded, onBack }) {
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || 'That password did not match');
       setSession(d);
-      if (d.mode === 'per_client' && d.events && d.events.length > 0) setActiveEvent(d.events[0].id);
+      if (d.events && d.events.length > 0) setActiveEvent(d.events[0].id);
     } catch (e) { setAuthErr(e.message); }
     finally { setAuthing(false); }
   }
@@ -122,8 +122,8 @@ export default function PublicGallery({ token, embedded, onBack }) {
   // 🧑‍🤝‍🧑 load the face circles once we're in
   useEffect(() => {
     if (!session) return;
-    // in per-client mode, faces are scoped to the selected event (Wedding faces don't show under Jaggo)
-    const evParam = (session.mode === 'per_client' && activeEvent !== 'all') ? `&event=${activeEvent}` : '';
+    // faces are scoped to the selected event (Wedding faces don't show under Jaggo)
+    const evParam = (activeEvent !== 'all') ? `&event=${activeEvent}` : '';
     fetch(`${API}/${token}/faces?vt=${session.vt}${evParam}`)
       .then(r => r.json())
       .then(d => setFaces(d.faces || []))
@@ -193,7 +193,7 @@ export default function PublicGallery({ token, embedded, onBack }) {
 
   const allPhotos = session?.photos || [];
   let photos = allPhotos;
-  if (session?.mode === 'per_client' && activeEvent !== 'all') photos = photos.filter(p => String(p.event_id) === String(activeEvent));
+  if (activeEvent !== 'all') photos = photos.filter(p => String(p.event_id) === String(activeEvent));
   if (matchIds !== null) photos = photos.filter(p => matchIds.includes(p.id));
   if (pickedOnly) photos = photos.filter(p => picked.has(p.id));
 
@@ -298,7 +298,7 @@ export default function PublicGallery({ token, embedded, onBack }) {
   // how many circles fit before "Find more" — 4-5 on phones, 8-10 on desktop
   const shownFaces = allFaces ? faces : faces.slice(0, faceLimit);
   const hasMoreFaces = faces.length > faceLimit;
-  const showScenes = session.mode === 'per_client' && session.events.length > 0 && matchIds === null && !pickedOnly;
+  const showScenes = session.events.length > 0 && matchIds === null && !pickedOnly;
 
   return (
     <div className="pg-wrap" style={styleVars}>
