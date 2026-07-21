@@ -499,7 +499,7 @@ export default function PublicGallery({ token, embedded, onBack }) {
                 className={`pg-scene-fav ${favOnly ? 'is-on' : ''}`}
                 onClick={openFavorites}
                 title={favOnly ? 'Showing your favorites — click to show all' : 'View your favorites (enter your email)'}
-              >⭐ Favorites</button>
+              >Favorites</button>
               <button className="pg-scene-dl" onClick={() => downloadAll(activeEvent)} disabled={zipBusy === activeEvent} title="Download these photos in a Zip file">
                 {zipBusy === activeEvent ? 'Preparing…' : `Download ${session.events.find(ev => String(ev.id) === String(activeEvent))?.name || 'event'}`}
               </button>
