@@ -22,8 +22,10 @@ const Icon = ({ d, ...rest }) => (
 const IconClose = <Icon d={<><path d="M6 6l12 12" /><path d="M18 6L6 18" /></>} />;
 // two overlapping people → "show more faces/people"
 const IconPeople = <Icon d={<><circle cx="9" cy="8" r="3.2" /><path d="M3.5 19a5.5 5.5 0 0111 0" /><path d="M16 5.2a3.2 3.2 0 010 5.9" /><path d="M17.5 13.4A5.5 5.5 0 0120.5 18.3" /></>} />;
-// single person in view → "find me / my selfie"
-const IconUser = <Icon d={<><circle cx="12" cy="8" r="3.6" /><path d="M5 20a7 7 0 0114 0" /></>} />;
+// magnifier with a person in the lens → "find me / search for my face"
+const IconUser = <Icon d={<><circle cx="10" cy="10" r="7.5" /><path d="M15.5 15.5L21 21" /><circle cx="10" cy="8" r="2.2" /><path d="M6.2 13.2a3.9 3.9 0 017.6 0" /></>} />;
+// down-arrow into a tray → clearly "download to device"
+const IconDownload = <Icon d={<><path d="M12 4v10" /><path d="M8 10.5l4 4 4-4" /><path d="M5 19h14" /></>} />;
 
 export default function PublicGallery({ token, embedded, onBack }) {
   const [meta, setMeta] = useState(null);
@@ -44,20 +46,34 @@ export default function PublicGallery({ token, embedded, onBack }) {
   const [slideshow, setSlideshow] = useState(false);
   const [faces, setFaces] = useState([]);           // face circles, most photos first
   const [activeFace, setActiveFace] = useState(null);
-  const [allFaces, setAllFaces] = useState(false);  // "Find more" → show every circle
+  const [allFaces, setAllFaces] = useState(false);  // "More Faces" → show every circle
   const [findMeOpen, setFindMeOpen] = useState(false);
-  const [faceLimit, setFaceLimit] = useState(10);
+  const [fitCount, setFitCount] = useState(0);      // how many circles fit exactly one row (0 = not measured yet)
+  const facesRef = useRef(null);                    // the collapsed face row, for measuring
 
-  // how many face circles fit before "Find more": 4-5 on phones, 8-10 on desktop
+  // Measure how many circles fit ONE row at the current width, so the collapsed
+  // row fills edge-to-edge with no dead space. The row is nowrap+clipped, so we
+  // count items whose right edge stays within the container. Re-measures on resize.
   useEffect(() => {
-    const calc = () => {
-      const w = window.innerWidth;
-      setFaceLimit(w < 480 ? 4 : w < 700 ? 5 : w < 1100 ? 8 : 10);
+    const el = facesRef.current;
+    if (!el) return;
+    const measure = () => {
+      const items = el.querySelectorAll('.pg-face');
+      if (!items.length) { setFitCount(0); return; }
+      const box = el.getBoundingClientRect();
+      let n = 0;
+      for (const it of items) {
+        const r = it.getBoundingClientRect();
+        if (r.right <= box.right + 1) n++; else break;
+      }
+      setFitCount(n);
     };
-    calc();
-    window.addEventListener('resize', calc);
-    return () => window.removeEventListener('resize', calc);
-  }, []);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    window.addEventListener('resize', measure);
+    return () => { ro.disconnect(); window.removeEventListener('resize', measure); };
+  }, [faces.length, allFaces]);
   const selfieInput = useRef(null);
   const cameraInput = useRef(null);
   const gridRef = useRef(null);
@@ -295,9 +311,9 @@ export default function PublicGallery({ token, embedded, onBack }) {
 
   const current = lightbox !== null ? photos[lightbox] : null;
   const nPicked = picked.size;
-  // how many circles fit before "Find more" — 4-5 on phones, 8-10 on desktop
-  const shownFaces = allFaces ? faces : faces.slice(0, faceLimit);
-  const hasMoreFaces = faces.length > faceLimit;
+  // Collapsed: CSS fits as many circles as the row holds (no dead space); the rest
+  // are hidden and revealed by "More Faces". We render ALL faces and let the grid clip
+  // to one row when collapsed — so the fit is always exact on any screen width.
   const showScenes = session.events.length > 0 && matchIds === null && !pickedOnly;
 
   return (
@@ -324,7 +340,7 @@ export default function PublicGallery({ token, embedded, onBack }) {
       {findMeOpen && (
         <div className="pg-modal" onClick={() => setFindMeOpen(false)}>
           <div className="pg-modal-card" onClick={e => e.stopPropagation()}>
-            <button className="pg-modal-x" onClick={() => setFindMeOpen(false)}>✕</button>
+            <button className="pg-modal-x" onClick={() => setFindMeOpen(false)} title="Close">✕</button>
             <h2 className="pg-modal-title">Find your photos</h2>
             <p className="pg-modal-sub">We'll match your face against this gallery. Your photo isn't stored.</p>
             <div className="pg-modal-acts">
@@ -360,13 +376,13 @@ export default function PublicGallery({ token, embedded, onBack }) {
       {/* bar 2 — the people in this gallery */}
       {(faces.length > 0 || session.faceReady) && (
         <div className="pg-people">
-          <div className={`pg-faces ${allFaces ? 'is-expanded' : ''}`}>
-            {shownFaces.map(f => (
+          <div ref={facesRef} className={`pg-faces ${allFaces ? 'is-expanded' : ''}`}>
+            {faces.map(f => (
               <button
                 key={f.id}
                 className={`pg-face ${activeFace === f.id ? 'is-on' : ''}`}
                 onClick={() => pickFace(f)}
-                title={`${f.count} photos`}
+                title={`Show only this person's photos (${f.count})`}
               >
                 <img src={faceUrl(f.id)} alt="" loading="lazy" />
                 <span className="pg-face-n">{f.count}</span>
@@ -375,21 +391,26 @@ export default function PublicGallery({ token, embedded, onBack }) {
             {faces.length === 0 && <span className="pg-faces-empty">Finding faces…</span>}
           </div>
 
+          {/* action circles — same size as faces, always visible at the row's end */}
           <div className="pg-people-acts">
             {activeFace && (
-              <button className="pg-ico is-on" onClick={clearFace}>
-                {IconClose}<span>Show all</span>
+              <button className="pg-facebtn is-on" onClick={clearFace} title="Show all photos">
+                <span className="pg-facebtn-ic">{IconClose}</span>
+                <span className="pg-facebtn-lbl">Show all</span>
               </button>
             )}
             <button
-              className="pg-ico"
+              className="pg-facebtn"
               onClick={() => setAllFaces(v => !v)}
-              disabled={!hasMoreFaces && !allFaces}
+              disabled={faces.length <= fitCount && !allFaces}
+              title={allFaces ? 'Show fewer faces' : 'Show more faces'}
             >
-              {IconPeople}<span>{allFaces ? 'Show fewer' : 'More Faces'}</span>
+              <span className="pg-facebtn-ic">{IconPeople}</span>
+              <span className="pg-facebtn-lbl">{allFaces ? 'Fewer' : 'More'}</span>
             </button>
-            <button className="pg-ico" onClick={() => setFindMeOpen(true)} disabled={selfieBusy}>
-              {IconUser}<span>{selfieBusy ? 'Searching…' : 'Find me'}</span>
+            <button className="pg-facebtn" onClick={() => setFindMeOpen(true)} disabled={selfieBusy} title="Find photos of yourself">
+              <span className="pg-facebtn-ic">{IconUser}</span>
+              <span className="pg-facebtn-lbl">{selfieBusy ? '…' : 'Find me'}</span>
             </button>
           </div>
         </div>
@@ -418,6 +439,7 @@ export default function PublicGallery({ token, embedded, onBack }) {
               className="pg-check"
               onClick={e => { e.stopPropagation(); togglePick(p.id); }}
               aria-label={picked.has(p.id) ? 'Deselect photo' : 'Select photo'}
+              title={picked.has(p.id) ? 'Deselect photo' : 'Select photo'}
             >✓</button>
           </figure>
         ))}
@@ -448,13 +470,13 @@ export default function PublicGallery({ token, embedded, onBack }) {
           <div className="pg-lb-bar" onClick={e => e.stopPropagation()}>
             <span className="pg-lb-name">{(current.name || '').replace(/\.[^.]+$/, '')}</span>
             <div className="pg-lb-acts">
-              <button className={`pg-lb-btn ${picked.has(current.id) ? 'is-on' : ''}`} onClick={() => togglePick(current.id)}>✓</button>
-              <button className={`pg-lb-btn ${slideshow ? 'is-on' : ''}`} onClick={() => setSlideshow(s => !s)}>{slideshow ? '❚❚' : '▶'}</button>
-              <button className="pg-lb-btn" onClick={() => downloadOne(current.id)}>↓</button>
-              <button className="pg-lb-btn" onClick={() => { setLightbox(null); setSlideshow(false); }}>✕</button>
+              <button className={`pg-lb-btn ${picked.has(current.id) ? 'is-on' : ''}`} onClick={() => togglePick(current.id)} title={picked.has(current.id) ? 'Unselect photo' : 'Select photo'}>✓</button>
+              <button className={`pg-lb-btn ${slideshow ? 'is-on' : ''}`} onClick={() => setSlideshow(s => !s)} title={slideshow ? 'Pause slideshow' : 'Play slideshow'}>{slideshow ? '❚❚' : '▶'}</button>
+              <button className="pg-lb-btn" onClick={() => downloadOne(current.id)} title="Download photo">{IconDownload}</button>
+              <button className="pg-lb-btn" onClick={() => { setLightbox(null); setSlideshow(false); }} title="Close">✕</button>
             </div>
           </div>
-          <button className="pg-lb-nav prev" onClick={e => { e.stopPropagation(); setSlideshow(false); step(-1); }} aria-label="Previous">‹</button>
+          <button className="pg-lb-nav prev" onClick={e => { e.stopPropagation(); setSlideshow(false); step(-1); }} aria-label="Previous" title="Previous photo">‹</button>
           <div className="pg-lb-stage" onClick={e => e.stopPropagation()}>
             <img
               key={current.id}
@@ -465,7 +487,7 @@ export default function PublicGallery({ token, embedded, onBack }) {
               fetchpriority="high"
             />
           </div>
-          <button className="pg-lb-nav next" onClick={e => { e.stopPropagation(); setSlideshow(false); step(1); }} aria-label="Next">›</button>
+          <button className="pg-lb-nav next" onClick={e => { e.stopPropagation(); setSlideshow(false); step(1); }} aria-label="Next" title="Next photo">›</button>
         </div>
       )}
 

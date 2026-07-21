@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { api, getUser, clearSession } from '../lib/api';
 import { fmtTime } from '../lib/api';
+import { useAppRoute } from '../lib/appRoute';
 import { PROFESSIONS, LeadFormBody } from './InquiryForm';
 import PasswordInput from '../components/PasswordInput';
 import './inquiry.css';
@@ -28,7 +29,9 @@ export default function VendorPanel({ onLogout }) {
   const [features, setFeatures] = useState(null);   // 🗝️ entitlements (null = loading)
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [tab, setTab] = useState('dashboard');
+  const { route, navigate } = useAppRoute('dashboard');
+  const tab = route.tab;
+  const setTab = (t) => navigate({ tab: t });
   const [collapsed, setCollapsed] = useState(() => window.innerWidth <= 820);
   const [profile, setProfile] = useState(null);
   const user = getUser();
@@ -129,7 +132,7 @@ export default function VendorPanel({ onLogout }) {
         ) : tab === 'crew' ? (
           <CrewView />
         ) : tab === 'galleries' ? (
-          <GalleriesView />
+          <GalleriesView routeAlbum={route.album} onOpenAlbum={(id) => navigate({ tab: 'galleries', album: id ? String(id) : null })} />
         ) : tab === 'aichat' ? (
           <AiChatVendorView goServices={() => setTab('services')} />
         ) : tab === 'calendar' ? (
@@ -356,10 +359,13 @@ function FocalPicker({ src, focus, onFocus, view, onView }) {
   );
 }
 
-function GalleriesView() {
+function GalleriesView({ routeAlbum, onOpenAlbum }) {
   const [albums, setAlbums] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [open, setOpen] = useState(null); // album id being viewed
+  // album open state is driven by the URL (routeAlbum): open = set it in the URL,
+  // close = clear it. This keeps the browser Back button in sync with the view.
+  const open = routeAlbum ? Number(routeAlbum) : null;
+  const setOpen = (id) => onOpenAlbum(id);
   const [showNew, setShowNew] = useState(false);
   const [edit, setEdit] = useState(null); // album being edited
   const [bookings, setBookings] = useState([]);

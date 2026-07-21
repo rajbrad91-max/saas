@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Selling from './pages/Selling';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
@@ -19,6 +19,13 @@ import { getUser } from './lib/api';
 export default function App() {
   const [user, setUser] = useState(getUser());
   const [showLogin, setShowLogin] = useState(false);
+  // re-render on Back/Forward so URL-driven routes (e.g. /panel ↔ /) stay in sync
+  const [, forceUrlTick] = useState(0);
+  useEffect(() => {
+    const onPop = () => forceUrlTick(t => t + 1);
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
 
   // 🌐 Public inquiry route: /inquiry/:vendorId  (no login needed)
   const m = window.location.pathname.match(/^\/inquiry\/(\d+)/);
