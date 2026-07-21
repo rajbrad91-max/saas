@@ -606,17 +606,6 @@ export default function PublicGallery({ token, embedded, onBack }) {
         </div>
       )}
 
-      {nFavs > 0 && (
-        <div className={`pg-selbar pg-favbar ${nPicked > 0 ? 'is-stacked' : ''}`}>
-          <span className="pg-selbar-n">⭐ {nFavs} favorite{nFavs === 1 ? '' : 's'}</span>
-          <div className="pg-selbar-acts">
-            <button className="pg-selbar-btn" onClick={() => setFavOnly(v => !v)}>
-              {favOnly ? 'Show all' : 'View favorites'}
-            </button>
-          </div>
-        </div>
-      )}
-
       {current && (
         <div
           className="pg-lb"

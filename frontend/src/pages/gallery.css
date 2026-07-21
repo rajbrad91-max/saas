@@ -447,9 +447,6 @@
 }
 @keyframes pg-pop { from { opacity: 0; transform: translate(-50%, 14px); } to { opacity: 1; transform: translate(-50%, 0); } }
 .pg-selbar-n { font-size: 12px; letter-spacing: .1em; text-transform: uppercase; white-space: nowrap; }
-/* ⭐ favorites bar — same pill; when the select bar is also up, stack above it */
-.pg-favbar.is-stacked { bottom: 84px; }
-@keyframes pg-pop-stacked { from { opacity: 0; transform: translate(-50%, 14px); } to { opacity: 1; transform: translate(-50%, 0); } }
 .pg-selbar-acts { display: flex; gap: 4px; }
 .pg-selbar-btn {
   padding: 8px 15px;
