@@ -5,7 +5,7 @@ import sharp from 'sharp';
 import fs from 'fs';
 import path from 'path';
 import bcrypt from 'bcryptjs';
-import { query } from '../config/db.js';
+import prisma from '../config/prisma.js';
 import { requireAuth } from '../middleware/auth.js';
 import { getFeatures } from '../lib/entitlements.js';
 
@@ -28,12 +28,10 @@ router.get('/settings', requireAuth, async (req, res) => {
   const vid = req.user.vendor_id;
   if (!vid) return res.json({ settings: null });
   try {
-    let { rows } = await query('SELECT * FROM vendor_settings WHERE vendor_id=$1', [vid]);
-    if (!rows[0]) {
-      await query('INSERT INTO vendor_settings (vendor_id) VALUES ($1)', [vid]);
-      rows = (await query('SELECT * FROM vendor_settings WHERE vendor_id=$1', [vid])).rows;
-    }
-    res.json({ settings: rows[0] });
+    // create the row on first read, same as before
+    let settings = await prisma.vendor_settings.findUnique({ where: { vendor_id: vid } }); // 🔒 tenancy
+    if (!settings) settings = await prisma.vendor_settings.create({ data: { vendor_id: vid } });
+    res.json({ settings });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -43,12 +41,16 @@ router.put('/settings', requireAuth, async (req, res) => {
   if (!vid) return res.status(400).json({ error: 'No vendor' });
   const { time_format, timezone, theme } = req.body;
   try {
-    await query(
-      `INSERT INTO vendor_settings (vendor_id, time_format, timezone, theme)
-       VALUES ($1,$2,$3,$4)
-       ON CONFLICT (vendor_id) DO UPDATE SET time_format=$2, timezone=$3, theme=$4, updated_at=NOW()`,
-      [vid, time_format || '12h', timezone || 'America/Vancouver', theme || 'dark']
-    );
+    const data = {
+      time_format: time_format || '12h',
+      timezone: timezone || 'America/Vancouver',
+      theme: theme || 'dark',
+    };
+    await prisma.vendor_settings.upsert({
+      where: { vendor_id: vid },                  // 🔒 tenancy
+      update: { ...data, updated_at: new Date() },
+      create: { vendor_id: vid, ...data },
+    });
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -58,12 +60,15 @@ router.put('/email', requireAuth, async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) return res.status(400).json({ error: 'Email + current password required' });
   try {
-    const { rows } = await query('SELECT * FROM users WHERE id=$1', [req.user.id]);
-    const ok = await bcrypt.compare(password, rows[0].password_hash);
+    const me = await prisma.users.findUnique({ where: { id: req.user.id } });   // 🔒 own account only
+    const ok = await bcrypt.compare(password, me.password_hash);
     if (!ok) return res.status(401).json({ error: 'Wrong password' });
-    const dupe = await query('SELECT id FROM users WHERE email=$1 AND id<>$2', [email, req.user.id]);
-    if (dupe.rows.length) return res.status(409).json({ error: 'Email already in use' });
-    await query('UPDATE users SET email=$1 WHERE id=$2', [email, req.user.id]);
+    const dupe = await prisma.users.findFirst({
+      where: { email, id: { not: req.user.id } },
+      select: { id: true },
+    });
+    if (dupe) return res.status(409).json({ error: 'Email already in use' });
+    await prisma.users.update({ where: { id: req.user.id }, data: { email } });
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -74,11 +79,11 @@ router.put('/password', requireAuth, async (req, res) => {
   if (!current || !next) return res.status(400).json({ error: 'Both passwords required' });
   if (next.length < 6) return res.status(400).json({ error: 'New password too short (min 6)' });
   try {
-    const { rows } = await query('SELECT * FROM users WHERE id=$1', [req.user.id]);
-    const ok = await bcrypt.compare(current, rows[0].password_hash);
+    const me = await prisma.users.findUnique({ where: { id: req.user.id } });   // 🔒 own account only
+    const ok = await bcrypt.compare(current, me.password_hash);
     if (!ok) return res.status(401).json({ error: 'Wrong current password' });
     const hash = await bcrypt.hash(next, 10);
-    await query('UPDATE users SET password_hash=$1 WHERE id=$2', [hash, req.user.id]);
+    await prisma.users.update({ where: { id: req.user.id }, data: { password_hash: hash } });
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -88,8 +93,11 @@ router.get('/profile', requireAuth, async (req, res) => {
   const vid = req.user.vendor_id;
   if (!vid) return res.json({ profile: null });
   try {
-    const { rows } = await query('SELECT id, business_name, phone, email, country, logo_path FROM vendors WHERE id=$1', [vid]);
-    res.json({ profile: rows[0] || null });
+    const profile = await prisma.vendors.findUnique({
+      where: { id: vid },                         // 🔒 tenancy — own vendor row
+      select: { id: true, business_name: true, phone: true, email: true, country: true, logo_path: true },
+    });
+    res.json({ profile: profile || null });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -99,9 +107,9 @@ router.put('/profile', requireAuth, async (req, res) => {
   if (!vid) return res.status(400).json({ error: 'No vendor' });
   const { business_name, phone, email, country } = req.body;
   try {
-    await query(
-      `UPDATE vendors SET business_name=COALESCE($1,business_name), phone=$2, email=$3, country=$4 WHERE id=$5`,
-      [business_name || null, phone || '', email || '', country || '', vid]);
+    const data = { phone: phone || '', email: email || '', country: country || '' };
+    if (business_name) data.business_name = business_name;   // COALESCE($1,business_name)
+    await prisma.vendors.update({ where: { id: vid }, data }); // 🔒 tenancy
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -115,7 +123,7 @@ router.post('/logo', requireAuth, upload.single('logo'), async (req, res) => {
     const fname = `${vid}_${Date.now()}.webp`;
     await sharp(req.file.path).resize(400, 400, { fit: 'inside', withoutEnlargement: true }).webp({ quality: 88 }).toFile(path.join(LOGO_DIR, fname));
     fs.unlinkSync(req.file.path);
-    await query('UPDATE vendors SET logo_path=$1 WHERE id=$2', [fname, vid]);
+    await prisma.vendors.update({ where: { id: vid }, data: { logo_path: fname } }); // 🔒 tenancy
     res.json({ ok: true, logo_path: fname });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });

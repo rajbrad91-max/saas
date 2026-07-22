@@ -1,5 +1,5 @@
 import express from 'express';
-import { query } from '../config/db.js';
+import prisma from '../config/prisma.js';
 import { requireAuth, requireSuperAdmin } from '../middleware/auth.js';
 import { tenantScope } from '../middleware/tenant.js';
 import { getFeatures } from '../lib/entitlements.js';
@@ -23,73 +23,94 @@ const FEATURE_LIST = [
 
 // GET /api/vendors  → super admin: list ALL vendors
 router.get('/', requireAuth, requireSuperAdmin, async (req, res) => {
-  const { rows } = await query('SELECT * FROM vendors ORDER BY created_at DESC');
-  res.json({ vendors: rows });
+  try {
+    const vendors = await prisma.vendors.findMany({ orderBy: { created_at: 'desc' } });
+    res.json({ vendors });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // GET /api/vendors/:id/detail → super admin: full vendor profile
 router.get('/:id/detail', requireAuth, requireSuperAdmin, async (req, res) => {
-  const id = req.params.id;
+  const id = Number(req.params.id);
   try {
-    const { rows: v } = await query('SELECT * FROM vendors WHERE id=$1', [id]);
-    if (!v[0]) return res.status(404).json({ error: 'Vendor not found' });
+    const vendor = await prisma.vendors.findUnique({ where: { id } });
+    if (!vendor) return res.status(404).json({ error: 'Vendor not found' });
 
-    const { rows: users } = await query('SELECT id,name,email,role,created_at FROM users WHERE vendor_id=$1', [id]);
-    const { rows: services } = await query(
-      `SELECT vs.id, vs.enabled, s.name, s.icon, s.price
-       FROM vendor_services vs JOIN services s ON s.id=vs.service_id
-       WHERE vs.vendor_id=$1 ORDER BY s.name`, [id]);
-    const { rows: subs } = await query(
-      `SELECT vsub.id, vsub.status, vsub.started_at, vsub.ends_at, p.name AS plan_name
-       FROM vendor_subscriptions vsub LEFT JOIN plans p ON p.id=vsub.plan_id
-       WHERE vsub.vendor_id=$1 ORDER BY vsub.started_at DESC`, [id]);
-    const emails = users.map(u => u.email);
-    const { rows: referral } = emails.length
-      ? await query('SELECT referrer_email, status, created_at FROM referrals WHERE friend_email = ANY($1)', [emails])
-      : { rows: [] };
+    const users = await prisma.users.findMany({
+      where: { vendor_id: id },
+      select: { id: true, name: true, email: true, role: true, created_at: true },
+    });
 
-    res.json({ vendor: v[0], users, services, subscriptions: subs, referredBy: referral[0] || null });
+    const vsRows = await prisma.vendor_services.findMany({
+      where: { vendor_id: id },
+      select: { id: true, enabled: true, services: { select: { name: true, icon: true, price: true } } },
+    });
+    const services = vsRows
+      .map(r => ({ id: r.id, enabled: r.enabled, name: r.services?.name, icon: r.services?.icon, price: r.services?.price }))
+      .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+    const subRows = await prisma.vendor_subscriptions.findMany({
+      where: { vendor_id: id },
+      orderBy: { started_at: 'desc' },
+      select: { id: true, status: true, started_at: true, ends_at: true, plans: { select: { name: true } } },
+    });
+    const subscriptions = subRows.map(({ plans, ...s }) => ({ ...s, plan_name: plans?.name ?? null }));
+
+    const emails = users.map(u => u.email).filter(Boolean);
+    const referral = emails.length
+      ? await prisma.referrals.findMany({
+          where: { friend_email: { in: emails } },
+          select: { referrer_email: true, status: true, created_at: true },
+        })
+      : [];
+
+    res.json({ vendor, users, services, subscriptions, referredBy: referral[0] || null });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // GET /api/vendors/me/services → a vendor's own services (tenant-scoped)
 router.get('/me/services', requireAuth, tenantScope, async (req, res) => {
   if (!req.tenantId) return res.status(400).json({ error: 'No tenant' });
-  const { rows } = await query(
-    `SELECT s.*, COALESCE(vs.enabled,false) AS enabled
-     FROM services s
-     LEFT JOIN vendor_services vs
-       ON vs.service_id = s.id AND vs.vendor_id = $1
-     ORDER BY s.id`,
-    [req.tenantId]  // 🔒 locked to this tenant
-  );
-  res.json({ services: rows });
+  try {
+    // LEFT JOIN vendor_services ON service_id AND vendor_id: every service row is
+    // returned, with `enabled` coming only from THIS tenant's row (false if none).
+    const services = await prisma.services.findMany({ orderBy: { id: 'asc' } });
+    const mine = await prisma.vendor_services.findMany({
+      where: { vendor_id: req.tenantId },        // 🔒 locked to this tenant
+      select: { service_id: true, enabled: true },
+    });
+    const enabledBy = new Map(mine.map(r => [r.service_id, r.enabled]));
+    res.json({ services: services.map(s => ({ ...s, enabled: enabledBy.get(s.id) ?? false })) });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // POST /api/vendors/:vendorId/services/:serviceId/toggle → super admin toggles
 router.post('/:vendorId/services/:serviceId/toggle',
   requireAuth, requireSuperAdmin, async (req, res) => {
-  const { vendorId, serviceId } = req.params;
+  const vendorId = Number(req.params.vendorId);
+  const serviceId = Number(req.params.serviceId);
   const { enabled } = req.body;
-
-  await query(
-    `INSERT INTO vendor_services (vendor_id, service_id, enabled)
-     VALUES ($1,$2,$3)
-     ON CONFLICT (vendor_id, service_id) DO UPDATE SET enabled=$3`,
-    [vendorId, serviceId, enabled]
-  );
-  res.json({ ok: true, vendorId, serviceId, enabled });
+  try {
+    await prisma.vendor_services.upsert({
+      where: { vendor_id_service_id: { vendor_id: vendorId, service_id: serviceId } },
+      update: { enabled },
+      create: { vendor_id: vendorId, service_id: serviceId, enabled },
+    });
+    res.json({ ok: true, vendorId, serviceId, enabled });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // GET /api/vendors/:id/features → super admin: every toggleable feature + whether
 // this vendor currently has it (after plan + services + overrides), and whether an
 // explicit override exists.
 router.get('/:id/features', requireAuth, requireSuperAdmin, async (req, res) => {
-  const id = req.params.id;
+  const id = Number(req.params.id);
   try {
     const active = await getFeatures(id); // effective set (plan ∪ services, overrides applied)
-    const { rows: ovr } = await query(
-      'SELECT feature_key, enabled FROM vendor_feature_overrides WHERE vendor_id=$1', [id]);
+    const ovr = await prisma.vendor_feature_overrides.findMany({
+      where: { vendor_id: id },
+      select: { feature_key: true, enabled: true },
+    });
     const overrideMap = Object.fromEntries(ovr.map(o => [o.feature_key, o.enabled]));
     const features = FEATURE_LIST.map(f => ({
       key: f.key,
@@ -105,18 +126,19 @@ router.get('/:id/features', requireAuth, requireSuperAdmin, async (req, res) => 
 // this vendor. Body { enabled: true|false } sets an override; { clear: true }
 // removes the override so the feature falls back to plan/services default.
 router.put('/:id/features/:key', requireAuth, requireSuperAdmin, async (req, res) => {
-  const { id, key } = req.params;
+  const id = Number(req.params.id);
+  const { key } = req.params;
   const { enabled, clear } = req.body;
   if (!FEATURE_LIST.some(f => f.key === key)) return res.status(400).json({ error: 'Unknown feature' });
   try {
     if (clear) {
-      await query('DELETE FROM vendor_feature_overrides WHERE vendor_id=$1 AND feature_key=$2', [id, key]);
+      await prisma.vendor_feature_overrides.deleteMany({ where: { vendor_id: id, feature_key: key } });
     } else {
-      await query(
-        `INSERT INTO vendor_feature_overrides (vendor_id, feature_key, enabled, updated_at)
-         VALUES ($1,$2,$3,NOW())
-         ON CONFLICT (vendor_id, feature_key) DO UPDATE SET enabled=$3, updated_at=NOW()`,
-        [id, key, !!enabled]);
+      await prisma.vendor_feature_overrides.upsert({
+        where: { vendor_id_feature_key: { vendor_id: id, feature_key: key } },
+        update: { enabled: !!enabled, updated_at: new Date() },
+        create: { vendor_id: id, feature_key: key, enabled: !!enabled, updated_at: new Date() },
+      });
     }
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
