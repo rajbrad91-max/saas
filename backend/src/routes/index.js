@@ -7,7 +7,7 @@ import prisma from '../config/prisma.js';
 import { Prisma } from '@prisma/client';
 import { requireAuth, requireSuperAdmin } from '../middleware/auth.js';
 import { getAllSettings, setSetting } from '../lib/settings.js';
-import { queueStatus } from '../lib/faceQueue.js';
+import { queueStatus, enqueueAlbum } from '../lib/faceQueue.js';
 import { deleteCollection } from '../lib/faceAWS.js';
 
 const router = express.Router();
@@ -67,7 +67,8 @@ router.post('/settings/reindex-all', requireAuth, requireSuperAdmin, async (req,
       catch (e) { console.error(`[reindex-all] collection ${a.id}:`, e.message); }
     }
 
-    // remove the cropped face circles from disk — they're regenerated on re-index
+    // the crop folders left by an older AWS build (crops are generated on demand
+    // now, but a folder can still exist from before that change)
     let thumbDirs = 0;
     try {
       for (const vendorDir of fs.readdirSync(GALLERIES_ROOT, { withFileTypes: true })) {
@@ -81,12 +82,24 @@ router.post('/settings/reindex-all', requireAuth, requireSuperAdmin, async (req,
       }
     } catch (e) { console.error('[reindex-all] face thumb cleanup:', e.message); }
 
+    // 🔄 …then RE-INDEX. The button says "Re-index all photos", so it must do
+    // both halves. Albums are queued rather than indexed inline: a real album
+    // takes minutes, which would time out the request and leave the admin
+    // staring at a spinner. The queue is already throttled and load-aware, so
+    // this never competes with client traffic.
+    const albumsWithPhotos = await prisma.albums.findMany({
+      where: { photos: { some: {} } },
+      select: { id: true },
+    });
+    for (const a of albumsWithPhotos) enqueueAlbum(a.id);
+
     res.json({
       ok: true,
       reset: r.count,                    // photos cleared
       collections_deleted: collectionsDeleted,
       face_thumb_dirs_removed: thumbDirs,
-      note: 'Face data cleared. Albums re-index on the next upload or when you press Index on an album.',
+      albums_queued: albumsWithPhotos.length,
+      note: `Cleared ${r.count} photo(s) and queued ${albumsWithPhotos.length} album(s) for re-indexing. This runs in the background — watch the backlog counter.`,
     });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
