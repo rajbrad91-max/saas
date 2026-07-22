@@ -871,18 +871,23 @@
 }
 
 /* 🎯 cover focal-point picker */
-/* form splits in two: settings stacked on the left, live cover preview on the right */
-.gal-two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 360px); gap: 22px; align-items: start; margin-top: 14px; }
-.gal-two-left { display: flex; flex-direction: column; gap: 14px; }
+/* compact two-column form: fields on the left at a readable width, preview on the right */
+.gal-two { display: grid; grid-template-columns: minmax(0, 380px) minmax(0, 340px); gap: 28px; align-items: start; margin-top: 14px; justify-content: start; }
+/* keep the top fields in line with the columns below instead of stretching edge-to-edge */
+.gal-top-row, .gal-form .gal-pick { max-width: 748px; }
+.gal-two-left { display: flex; flex-direction: column; gap: 13px; }
 .gal-two-right { position: sticky; top: 0; display: flex; flex-direction: column; gap: 8px; }
-.gal-pw-block { display: flex; flex-direction: column; gap: 12px; padding-top: 14px; border-top: 1px solid var(--line); }
-/* inside the stacked column the block already provides the divider + spacing */
+/* the two password fields sit side by side — they're short values */
+.gal-pw-block { display: flex; flex-direction: column; gap: 10px; padding-top: 13px; border-top: 1px solid var(--line); }
 .gal-pw-block .gal-pw-head { margin: 0; padding-top: 0; border-top: none; flex-direction: column; align-items: stretch; gap: 8px; }
 .gal-pw-block .gal-pw-tools { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 .gal-pw-block .gal-prefix { width: 100%; }
+.gal-pw-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+/* the cover chooser is a button, not a field — keep it button-sized */
+.gal-two-left .gal-cover-btn { display: inline-flex; width: auto; align-self: flex-start; padding: 9px 16px; }
 .gal-cover-empty {
   border: 1.5px dashed var(--line); border-radius: 10px;
-  padding: 40px 20px; text-align: center; color: var(--muted); font-size: 13px;
+  padding: 30px 18px; text-align: center; color: var(--muted); font-size: 12.5px;
   background: var(--panel-2);
 }
 .fp-frame-wrap { width: 100%; }

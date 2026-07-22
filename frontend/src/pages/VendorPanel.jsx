@@ -585,7 +585,7 @@ function GalleriesView({ routeAlbum, onOpenAlbum }) {
             </div>
           )}
 
-          <div className="gal-grid">
+          <div className="gal-grid gal-top-row">
             <div className="gal-full"><label className="lbl">Gallery Name *</label><input className="gal-input" value={f.title} onChange={e => setF({ ...f, title: e.target.value })} placeholder="Susan & Mike Wedding" /></div>
           </div>
 
@@ -615,16 +615,18 @@ function GalleriesView({ routeAlbum, onOpenAlbum }) {
                     <input className="gal-prefix" value={spwPrefix} onChange={e => applyPrefix('admin', e.target.value)} placeholder="admin prefix" title="Admin password prefix" />
                   </span>
                 </div>
-                <div><label className="lbl">🧑‍🤝‍🧑 Guest password</label>
-                  <div className="gal-pw-wrap">
-                    <input className="gal-input" type={showPw.guest ? 'text' : 'password'} value={f.guest_password} onChange={e => setF({ ...f, guest_password: e.target.value })} />
-                    <button type="button" className="gal-pw-eye" onClick={() => setShowPw(s => ({ ...s, guest: !s.guest }))} title={showPw.guest ? 'Hide' : 'Show'}>{showPw.guest ? '🙈' : '👁️'}</button>
+                <div className="gal-pw-pair">
+                  <div><label className="lbl">🧑‍🤝‍🧑 Guest password</label>
+                    <div className="gal-pw-wrap">
+                      <input className="gal-input" type={showPw.guest ? 'text' : 'password'} value={f.guest_password} onChange={e => setF({ ...f, guest_password: e.target.value })} />
+                      <button type="button" className="gal-pw-eye" onClick={() => setShowPw(s => ({ ...s, guest: !s.guest }))} title={showPw.guest ? 'Hide' : 'Show'}>{showPw.guest ? '🙈' : '👁️'}</button>
+                    </div>
                   </div>
-                </div>
-                <div><label className="lbl">🔐 Admin password</label>
-                  <div className="gal-pw-wrap">
-                    <input className="gal-input" type={showPw.admin ? 'text' : 'password'} value={f.admin_password} onChange={e => setF({ ...f, admin_password: e.target.value })} />
-                    <button type="button" className="gal-pw-eye" onClick={() => setShowPw(s => ({ ...s, admin: !s.admin }))} title={showPw.admin ? 'Hide' : 'Show'}>{showPw.admin ? '🙈' : '👁️'}</button>
+                  <div><label className="lbl">🔐 Admin password</label>
+                    <div className="gal-pw-wrap">
+                      <input className="gal-input" type={showPw.admin ? 'text' : 'password'} value={f.admin_password} onChange={e => setF({ ...f, admin_password: e.target.value })} />
+                      <button type="button" className="gal-pw-eye" onClick={() => setShowPw(s => ({ ...s, admin: !s.admin }))} title={showPw.admin ? 'Hide' : 'Show'}>{showPw.admin ? '🙈' : '👁️'}</button>
+                    </div>
                   </div>
                 </div>
               </div>
