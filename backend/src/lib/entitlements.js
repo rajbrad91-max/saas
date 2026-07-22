@@ -2,7 +2,7 @@
 // features(vendor) = active plan features ∪ enabled standalone services
 import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
-import { query } from '../config/db.js';
+import prisma from '../config/prisma.js';
 dotenv.config();
 
 const SECRET = process.env.JWT_SECRET || 'dev-secret-change-me';
@@ -12,22 +12,38 @@ const SECRET = process.env.JWT_SECRET || 'dev-secret-change-me';
  *  overrides are applied last: an override can force a feature ON (add it) or
  *  OFF (remove it) regardless of plan/services — this is the super-admin toggle. */
 export async function getFeatures(vendorId) {
-  const { rows } = await query(
-    `SELECT pf.feature_key FROM vendor_subscriptions vs
-       JOIN plan_features pf ON pf.plan_id = vs.plan_id
-      WHERE vs.vendor_id = $1 AND vs.status = 'active'
-        AND (vs.ends_at IS NULL OR vs.ends_at > NOW())
-     UNION
-     SELECT s.feature_key FROM vendor_services v
-       JOIN services s ON s.id = v.service_id
-      WHERE v.vendor_id = $1 AND v.enabled = TRUE AND s.feature_key IS NOT NULL`,
-    [vendorId]);
-  const set = new Set(rows.map(r => r.feature_key));
+  const vid = Number(vendorId);
+  const now = new Date();
+
+  // side A of the old UNION: features granted by an ACTIVE, unexpired plan
+  const subs = await prisma.vendor_subscriptions.findMany({
+    where: {
+      vendor_id: vid,                                     // 🔒 tenancy
+      status: 'active',
+      OR: [{ ends_at: null }, { ends_at: { gt: now } }],
+    },
+    select: { plans: { select: { plan_features: { select: { feature_key: true } } } } },
+  });
+
+  // side B: features granted by an enabled standalone service
+  const svcs = await prisma.vendor_services.findMany({
+    where: {
+      vendor_id: vid,                                     // 🔒 tenancy
+      enabled: true,
+      services: { feature_key: { not: null } },
+    },
+    select: { services: { select: { feature_key: true } } },
+  });
+
+  const set = new Set();                                  // UNION de-duplicates
+  for (const s of subs) for (const pf of (s.plans?.plan_features || [])) set.add(pf.feature_key);
+  for (const v of svcs) if (v.services?.feature_key) set.add(v.services.feature_key);
 
   // apply per-vendor overrides last (super-admin manual on/off)
-  const { rows: ovr } = await query(
-    `SELECT feature_key, enabled FROM vendor_feature_overrides WHERE vendor_id = $1`,
-    [vendorId]);
+  const ovr = await prisma.vendor_feature_overrides.findMany({
+    where: { vendor_id: vid },                            // 🔒 tenancy
+    select: { feature_key: true, enabled: true },
+  });
   for (const o of ovr) {
     if (o.enabled) set.add(o.feature_key);
     else set.delete(o.feature_key);
