@@ -12,6 +12,7 @@ import fs from 'fs';
 import path from 'path';
 import { GALLERIES_ROOT } from '../config/paths.js';
 import prisma from '../config/prisma.js';
+import { Prisma } from '@prisma/client';
 import {
   ensureCollection, indexPhotoFaces, searchByFaceId,
   collectionIdFor, cropFaceThumb, deleteFaces,
@@ -85,7 +86,16 @@ export async function indexAlbumAWS(albumId) {
 
       await prisma.photos.update({
         where: { id: p.id },
-        data: { face_indexed: true, face_count: found.length, face_engine: 'aws', faces: undefined },
+        data: {
+          face_indexed: true,
+          face_count: found.length,
+          face_engine: 'aws',
+          // AWS keeps the signatures in its collection, so this column must be
+          // EMPTIED — not skipped. `faces: undefined` means "leave unchanged" in
+          // Prisma, which silently kept stale local descriptors on an album that
+          // had previously been indexed locally.
+          faces: Prisma.DbNull,
+        },
       });
 
       indexed++;
