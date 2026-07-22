@@ -146,12 +146,12 @@ export async function groupAlbumFacesAWS(albumId) {
 
     if (childIds.length) {
       await prisma.album_faces.updateMany({
-        where: { id: { in: childIds }, album_id: album.id },
+        where: { id: { in: childIds }, album_id: album.id },   // 🔒 tenancy on the write
         data: { matched_face_id: face.id, is_processed: true },
       });
     }
-    await prisma.album_faces.update({
-      where: { id: face.id },
+    await prisma.album_faces.updateMany({
+      where: { id: face.id, album_id: album.id },              // 🔒 tenancy on the write
       data: { is_processed: true, occurrence_count: childIds.length + 1 },
     });
     done.add(face.rekognition_face_id);

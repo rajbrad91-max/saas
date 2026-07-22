@@ -80,7 +80,6 @@ async function collectFaces(albumId) {
         photo_id: p.id,
         engine: p.face_engine || 'vladmandic',
         descriptor: f.descriptor || null,
-        imgB64: f.imgB64 || null,
         box: f.box || null,
         score: f.score ?? 1,
       });
