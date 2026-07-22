@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { api, getUser, clearSession } from '../lib/api';
+import { api, getUser, clearSession, getAuthToken } from '../lib/api';
 import { fmtTime } from '../lib/api';
 import { useAppRoute } from '../lib/appRoute';
 import { PROFESSIONS, LeadFormBody } from './InquiryForm';
@@ -850,7 +850,7 @@ function AlbumDetail({ albumId, onBack }) {
   const sentinelRef = useRef(null);
   const workerRef = useRef(null);
   const visibleLenRef = useRef(0); // holds current visible-photo count for the keyboard handler
-  const token = localStorage.getItem('iwopo_token');
+  const token = getAuthToken();   // this tab's token, not whatever another tab last wrote
 
   // clean up the upload worker + any object URLs on unmount
   useEffect(() => () => {

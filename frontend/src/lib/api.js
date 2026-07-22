@@ -14,30 +14,61 @@ export function fmtTime(t) {
   return `${h}:${min} ${ap}`;
 }
 
+// 🗂️ Session storage is PER TAB, so a super-admin tab and a vendor tab can be
+// open side by side without overwriting each other. localStorage is shared
+// across every tab of the site, which meant logging into one panel silently
+// replaced the other's session — refreshing then dropped you into the wrong
+// panel, or produced "Super admin only" errors on admin screens.
+//
+// localStorage is still read as a fallback (so an existing login isn't lost the
+// first time this ships) and still written, so opening a NEW tab keeps you
+// signed in rather than forcing a fresh login every time.
 function getToken() {
-  return localStorage.getItem('iwopo_token');
+  return sessionStorage.getItem('iwopo_token') || localStorage.getItem('iwopo_token');
+}
+
+/** This tab's token — for building authed <img src> / download URLs.
+ *  Always use this instead of reading localStorage directly, or the URL will
+ *  carry another tab's identity. */
+export function getAuthToken() {
+  return getToken();
 }
 
 export function setSession(token, user) {
-  localStorage.setItem('iwopo_token', token);
+  sessionStorage.setItem('iwopo_token', token);          // this tab's identity
+  sessionStorage.setItem('iwopo_user', JSON.stringify(user));
+  localStorage.setItem('iwopo_token', token);            // seed for new tabs
   localStorage.setItem('iwopo_user', JSON.stringify(user));
 }
 
 export function clearSession() {
+  sessionStorage.removeItem('iwopo_token');
+  sessionStorage.removeItem('iwopo_user');
   localStorage.removeItem('iwopo_token');
   localStorage.removeItem('iwopo_user');
 }
 
 export function getUser() {
-  const raw = localStorage.getItem('iwopo_user');
+  const raw = sessionStorage.getItem('iwopo_user') || localStorage.getItem('iwopo_user');
   return raw ? JSON.parse(raw) : null;
 }
 
-// 🔎 Read the role baked into the JWT itself, rather than trusting the copy of
-// the user we stashed in localStorage. Both panels share one `iwopo_token` key,
-// so logging into the vendor panel overwrites a super-admin token — the admin
-// screens would still render while every request went out as a vendor and came
-// back "Super admin only". Comparing the two catches that.
+// 🔗 On first load in a tab, copy whatever localStorage has into this tab's own
+// session. From then on the tab is pinned to that identity: another tab logging
+// in as someone else changes localStorage but NOT this tab's sessionStorage.
+(function pinSessionToTab() {
+  if (sessionStorage.getItem('iwopo_token')) return;     // tab already pinned
+  const t = localStorage.getItem('iwopo_token');
+  const u = localStorage.getItem('iwopo_user');
+  if (t && u) {
+    sessionStorage.setItem('iwopo_token', t);
+    sessionStorage.setItem('iwopo_user', u);
+  }
+})();
+
+// 🔎 Read the role baked into the JWT itself rather than trusting the stored
+// user object. With per-tab sessions the two should always agree, but this
+// still catches an expired token or a session left over from an older build.
 function roleFromToken() {
   const t = getToken();
   if (!t) return null;
