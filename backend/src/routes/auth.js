@@ -1,7 +1,7 @@
 import express from 'express';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
-import { query } from '../config/db.js';
+import prisma from '../config/prisma.js';
 import { signToken, requireAuth } from '../middleware/auth.js';
 import { sendPlatformEmail } from './email.js';
 
@@ -17,8 +17,7 @@ function clientIp(req) {
 
 // How many trials this IP has already used
 async function trialCount(ip) {
-  const { rows } = await query('SELECT COUNT(*)::int AS n FROM trial_signups WHERE ip_address=$1', [ip]);
-  return rows[0].n;
+  return prisma.trial_signups.count({ where: { ip_address: ip } });
 }
 
 // POST /api/auth/login
@@ -26,8 +25,7 @@ router.post('/login', async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) return res.status(400).json({ error: 'Missing fields' });
 
-  const { rows } = await query('SELECT * FROM users WHERE email=$1', [email]);
-  const user = rows[0];
+  const user = await prisma.users.findFirst({ where: { email } });
   if (!user) return res.status(401).json({ error: 'Invalid credentials' });
 
   const ok = await bcrypt.compare(password, user.password_hash);
@@ -64,40 +62,57 @@ router.post('/signup', async (req, res) => {
     }
   }
 
-  const exists = await query('SELECT id FROM users WHERE email=$1', [email]);
-  if (exists.rows.length) return res.status(409).json({ error: 'Email already registered' });
+  const exists = await prisma.users.findFirst({ where: { email }, select: { id: true } });
+  if (exists) return res.status(409).json({ error: 'Email already registered' });
 
-  // 1. Create vendor (tenant)
-  const v = await query(
-    `INSERT INTO vendors (business_name, plan, status, signup_ip) VALUES ($1,$2,$3,$4) RETURNING id`,
-    [businessName, isPaid ? plan : 'starter', isPaid ? 'active' : 'trial', ip]
-  );
-  const vendorId = v.rows[0].id;
-
-  // 2. Create vendor user linked to that tenant
   const hash = await bcrypt.hash(password, 10);
-  const u = await query(
-    `INSERT INTO users (name, email, password_hash, role, vendor_id)
-     VALUES ($1,$2,$3,'vendor',$4) RETURNING id, name, role, vendor_id`,
-    [name || businessName, email, hash, vendorId]
-  );
+  try {
+    // All-or-nothing: a half-finished signup used to be possible (vendor created,
+    // then the user insert fails → orphaned tenant). A transaction prevents that.
+    const created = await prisma.$transaction(async (tx) => {
+      // 1. Create vendor (tenant)
+      const vendor = await tx.vendors.create({
+        data: {
+          business_name: businessName,
+          plan: isPaid ? plan : 'starter',
+          status: isPaid ? 'active' : 'trial',
+          signup_ip: ip,
+        },
+        select: { id: true },
+      });
 
-  // 3. Record trial against IP (only for trials)
-  if (!isPaid) {
-    await query(`INSERT INTO trial_signups (ip_address, email, vendor_id) VALUES ($1,$2,$3)`,
-      [ip, email, vendorId]);
-  }
+      // 2. Create vendor user linked to that tenant
+      const user = await tx.users.create({
+        data: {
+          name: name || businessName,
+          email,
+          password_hash: hash,
+          role: 'vendor',
+          vendor_id: vendor.id,
+        },
+        select: { id: true, name: true, role: true, vendor_id: true },
+      });
 
-  // 4. Referral reward — if this email was referred AND signed up PAID → reward both 🎁
-  if (isPaid) {
-    await query(
-      `UPDATE referrals SET status='rewarded', friend_vendor_id=$1, rewarded_at=NOW()
-       WHERE friend_email=$2 AND status='pending'`,
-      [vendorId, email]
-    );
-  }
+      // 3. Record trial against IP (only for trials)
+      if (!isPaid) {
+        await tx.trial_signups.create({
+          data: { ip_address: ip, email, vendor_id: vendor.id },
+        });
+      }
 
-  res.status(201).json({ token: signToken(u.rows[0]), user: u.rows[0] });
+      // 4. Referral reward — if this email was referred AND signed up PAID → reward both 🎁
+      if (isPaid) {
+        await tx.referrals.updateMany({
+          where: { friend_email: email, status: 'pending' },
+          data: { status: 'rewarded', friend_vendor_id: vendor.id, rewarded_at: new Date() },
+        });
+      }
+
+      return user;
+    });
+
+    res.status(201).json({ token: signToken(created), user: created });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // POST /api/auth/forgot  → email a reset link (always responds ok, to avoid leaking which emails exist)
@@ -105,17 +120,21 @@ router.post('/forgot', async (req, res) => {
   const { email } = req.body;
   if (!email) return res.status(400).json({ error: 'Email required' });
   try {
-    const { rows } = await query('SELECT id, name, role FROM users WHERE email=$1', [email]);
-    const user = rows[0];
+    const user = await prisma.users.findFirst({
+      where: { email },
+      select: { id: true, name: true, role: true },
+    });
     // Only send for real accounts; still return ok either way.
     if (user) {
       const token = crypto.randomBytes(32).toString('hex');
       const hash = crypto.createHash('sha256').update(token).digest('hex');
-      await query(
-        `INSERT INTO password_reset_tokens (user_id, token_hash, expires_at)
-         VALUES ($1,$2, NOW() + INTERVAL '1 hour')`,
-        [user.id, hash]
-      );
+      await prisma.password_reset_tokens.create({
+        data: {
+          user_id: user.id,
+          token_hash: hash,
+          expires_at: new Date(Date.now() + 3600 * 1000),   // NOW() + INTERVAL '1 hour'
+        },
+      });
       const link = `${APP_URL}/reset-password?token=${token}`;
       try {
         await sendPlatformEmail(
@@ -142,16 +161,17 @@ router.post('/reset', async (req, res) => {
   if (password.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters' });
   try {
     const hash = crypto.createHash('sha256').update(token).digest('hex');
-    const { rows } = await query(
-      `SELECT id, user_id FROM password_reset_tokens
-       WHERE token_hash=$1 AND used_at IS NULL AND expires_at > NOW()`,
-      [hash]
-    );
-    const row = rows[0];
+    const row = await prisma.password_reset_tokens.findFirst({
+      where: { token_hash: hash, used_at: null, expires_at: { gt: new Date() } },
+      select: { id: true, user_id: true },
+    });
     if (!row) return res.status(400).json({ error: 'This reset link is invalid or has expired.' });
     const newHash = await bcrypt.hash(password, 10);
-    await query('UPDATE users SET password_hash=$1 WHERE id=$2', [newHash, row.user_id]);
-    await query('UPDATE password_reset_tokens SET used_at=NOW() WHERE id=$1', [row.id]);
+    // both writes together — the token must not be burned unless the password changed
+    await prisma.$transaction([
+      prisma.users.update({ where: { id: row.user_id }, data: { password_hash: newHash } }),
+      prisma.password_reset_tokens.update({ where: { id: row.id }, data: { used_at: new Date() } }),
+    ]);
     res.json({ ok: true, message: 'Password updated — you can log in now. ✅' });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -162,13 +182,15 @@ router.post('/change-password', requireAuth, async (req, res) => {
   if (!current || !next) return res.status(400).json({ error: 'Current and new password required' });
   if (next.length < 6) return res.status(400).json({ error: 'New password must be at least 6 characters' });
   try {
-    const { rows } = await query('SELECT password_hash FROM users WHERE id=$1', [req.user.id]);
-    const u = rows[0];
+    const u = await prisma.users.findUnique({
+      where: { id: req.user.id },                 // 🔒 own account only
+      select: { password_hash: true },
+    });
     if (!u) return res.status(404).json({ error: 'User not found' });
     const ok = await bcrypt.compare(current, u.password_hash);
     if (!ok) return res.status(401).json({ error: 'Current password is incorrect' });
     const newHash = await bcrypt.hash(next, 10);
-    await query('UPDATE users SET password_hash=$1 WHERE id=$2', [newHash, req.user.id]);
+    await prisma.users.update({ where: { id: req.user.id }, data: { password_hash: newHash } });
     res.json({ ok: true, message: 'Password changed. 🔒' });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
