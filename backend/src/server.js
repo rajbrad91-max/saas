@@ -1,3 +1,9 @@
+// ⚠️ FIRST import on purpose. ES modules evaluate imports before the importing
+// file's own statements, so this must load ahead of any route (which pulls in
+// the Prisma client) for the env check to happen before anything connects.
+import { checkEnv } from './config/checkEnv.js';
+checkEnv();
+
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
