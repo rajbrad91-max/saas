@@ -607,10 +607,6 @@ function GalleriesView({ routeAlbum, onOpenAlbum }) {
                 </label>
               </div>
 
-              {(coverFile || edit?.cover_photo) && (
-                <FocalControls view={focusView} onView={setFocusView} />
-              )}
-
               <div className="gal-pw-block">
                 <div className="gal-pw-head">
                   🔑 Access passwords
@@ -636,11 +632,14 @@ function GalleriesView({ routeAlbum, onOpenAlbum }) {
 
             <div className="gal-two-right">
               {(coverFile || edit?.cover_photo) ? (
-                <FocalPicker
-                  src={coverFile ? URL.createObjectURL(coverFile) : `${api.albumCoverUrl(edit.id)}?t=${edit.cover_photo}`}
-                  focus={coverFocus} onFocus={setCoverFocus}
-                  view={focusView} onView={setFocusView}
-                />
+                <>
+                  <FocalControls view={focusView} onView={setFocusView} />
+                  <FocalPicker
+                    src={coverFile ? URL.createObjectURL(coverFile) : `${api.albumCoverUrl(edit.id)}?t=${edit.cover_photo}`}
+                    focus={coverFocus} onFocus={setCoverFocus}
+                    view={focusView} onView={setFocusView}
+                  />
+                </>
               ) : (
                 <div className="gal-cover-empty">No cover photo yet — choose one to set its framing.</div>
               )}
