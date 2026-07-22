@@ -850,6 +850,26 @@
 .ad-fav-thumb { aspect-ratio: 1; border-radius: 8px; overflow: hidden; background: var(--panel-2); }
 .ad-fav-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
+/* 📩 client's selection — toolbar, note, and named thumbnails */
+.ad-sel-bar { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+.ad-sel-when { color: var(--muted); }
+.ad-sel-acts { display: flex; gap: 8px; flex: 0 0 auto; }
+.ad-sel-acts .ad-ev-btn { text-decoration: none; display: inline-flex; align-items: center; }
+.ad-sel-note {
+  border: 1px solid var(--line); border-left: 3px solid var(--teal);
+  background: var(--panel-2); border-radius: 0 8px 8px 0;
+  padding: 12px 14px; margin-bottom: 20px;
+}
+.ad-sel-note-h { font-size: 12px; font-weight: 700; color: var(--muted); margin-bottom: 6px; }
+.ad-sel-note-b { margin: 0; font-size: 14px; line-height: 1.6; color: var(--text); white-space: pre-wrap; }
+.ad-sel-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 10px; }
+.ad-sel-item { margin: 0; }
+.ad-sel-item img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 8px; background: var(--panel-2); display: block; }
+.ad-sel-item figcaption {
+  margin-top: 5px; font-size: 11px; color: var(--muted);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center;
+}
+
 /* 🎯 cover focal-point picker */
 .fp-wrap { margin-top: 10px; }
 .fp-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }

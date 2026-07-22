@@ -48,6 +48,7 @@
 }
 .pg-input::placeholder { color: var(--pg-sub); }
 .pg-input:focus { outline: none; border-color: var(--pg-accent); }
+.pg-textarea { resize: vertical; min-height: 92px; line-height: 1.5; font-family: inherit; }
 
 .pg-btn {
   padding: 14px 22px;

@@ -5,6 +5,7 @@ import crypto from 'crypto';
 import sharp from 'sharp';
 import fs from 'fs';
 import path from 'path';
+import archiver from 'archiver';
 import jwt from 'jsonwebtoken';
 import { query } from '../config/db.js';
 import { requireAuth } from '../middleware/auth.js';
@@ -478,7 +479,44 @@ router.get('/:id/selection', requireAuth, async (req, res) => {
       evMap.get(key).photos.push({ photo_id: r.photo_id, filename: r.filename, created_at: r.created_at });
     }
     const events = [...evMap.values()].map(ev => ({ ...ev, count: ev.photos.length }));
-    res.json({ total: rows.length, events });
+    // the note the client typed when sending, if any
+    const { rows: nr } = await query('SELECT note, updated_at FROM selection_notes WHERE album_id=$1', [req.params.id]);
+    res.json({
+      total: rows.length,
+      events,
+      note: nr[0]?.note || '',
+      sent_at: nr[0]?.updated_at || null,
+    });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// 📦 download the client's selected photos as a zip (token via header or ?token= for links)
+router.get('/:id/selection.zip', async (req, res) => {
+  const SECRET = process.env.JWT_SECRET || 'dev-secret-change-me';
+  const tok = (req.headers.authorization?.split(' ')[1]) || req.query.token;
+  let user;
+  try { user = jwt.verify(tok, SECRET); } catch { return res.status(401).json({ error: 'Invalid token' }); }
+  try {
+    const { rows: own } = await query('SELECT id, title FROM albums WHERE id=$1 AND vendor_id=$2', [req.params.id, user.vendor_id]);
+    if (!own[0]) return res.status(404).json({ error: 'Not found' });
+    const { rows } = await query(
+      `SELECT p.storage_path, p.filename, p.id
+         FROM selections s JOIN photos p ON p.id = s.photo_id
+        WHERE s.album_id = $1
+        ORDER BY p.filename`,
+      [req.params.id]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Nothing selected' });
+    const safe = `${own[0].title || 'gallery'}-selection`.replace(/[^a-z0-9]+/gi, '-').toLowerCase();
+    res.attachment(`${safe}.zip`);
+    const archive = archiver('zip', { zlib: { level: 6 } });
+    archive.on('error', () => { try { res.status(500).end(); } catch { /* stream already closed */ } });
+    archive.pipe(res);
+    for (const p of rows) {
+      const full = path.join(ROOT, p.storage_path);
+      if (fs.existsSync(full)) archive.file(full, { name: p.filename || `photo-${p.id}.jpg` });
+    }
+    archive.finalize();
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

@@ -345,6 +345,14 @@ router.post('/:token/selection', async (req, res) => {
     for (const id of keep) {
       await query('INSERT INTO selections (album_id, photo_id) VALUES ($1,$2) ON CONFLICT (album_id, photo_id) DO NOTHING', [a.id, id]);
     }
+    // save the note the client sent along with the selection (blank clears it)
+    const note = String(req.body?.note || '').trim().slice(0, 4000);
+    await query(
+      `INSERT INTO selection_notes (album_id, note, updated_at)
+       VALUES ($1,$2,now())
+       ON CONFLICT (album_id) DO UPDATE SET note = EXCLUDED.note, updated_at = now()`,
+      [a.id, note]
+    );
     res.json({ ok: true, count: keep.length });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });

@@ -62,6 +62,8 @@ export default function PublicGallery({ token, embedded, onBack }) {
   const [delBusy, setDelBusy] = useState(false);
   const [favBulkBusy, setFavBulkBusy] = useState(false); // bulk "Favorite" on the selection
   const [delPicked, setDelPicked] = useState(false);     // bulk delete confirmation open
+  const [sendOpen, setSendOpen] = useState(false);       // "Send to studio" note modal
+  const [sendNote, setSendNote] = useState('');
   const [slideshow, setSlideshow] = useState(false);
   const [faces, setFaces] = useState([]);           // face circles, most photos first
   const [activeFace, setActiveFace] = useState(null);
@@ -224,18 +226,19 @@ export default function PublicGallery({ token, embedded, onBack }) {
   }
   function clearPicked() { setPicked(new Set()); persist(new Set()); setPickedOnly(false); }
 
-  // 📩 admin sends the current selection to the studio (saved server-side)
+  // 📩 admin sends the current selection to the studio, with an optional note
   async function sendSelection() {
     if (!picked.size) return;
     setSendBusy(true); setSendMsg('');
     try {
       const r = await fetch(`${API}/${token}/selection?vt=${session.vt}`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ photo_ids: [...picked] }),
+        body: JSON.stringify({ photo_ids: [...picked], note: sendNote.trim() }),
       });
       const d = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(d.error || 'Could not send');
       setSendMsg(`Your selection of ${picked.size} photo${picked.size === 1 ? '' : 's'} was sent to the studio.`);
+      setSendOpen(false);
     } catch (e) { setSendMsg(e.message || 'Could not send selection.'); }
     finally { setSendBusy(false); }
   }
@@ -588,6 +591,31 @@ export default function PublicGallery({ token, embedded, onBack }) {
         </div>
       )}
 
+      {/* 📩 send selection to studio — with an optional note (admin) */}
+      {sendOpen && (
+        <div className="pg-modal" onClick={() => !sendBusy && setSendOpen(false)}>
+          <form className="pg-modal-card" onClick={e => e.stopPropagation()} onSubmit={e => { e.preventDefault(); sendSelection(); }}>
+            <button type="button" className="pg-modal-x" onClick={() => !sendBusy && setSendOpen(false)} title="Close">✕</button>
+            <h2 className="pg-modal-title">Send {nPicked} photo{nPicked === 1 ? '' : 's'} to the studio</h2>
+            <p className="pg-modal-sub">Add a note if there's anything the studio should know — retouching requests, album order, or anything else.</p>
+            <textarea
+              className="pg-input pg-textarea"
+              placeholder="Notes for the studio (optional)"
+              value={sendNote}
+              onChange={e => setSendNote(e.target.value)}
+              rows={4}
+              autoFocus
+            />
+            <div className="pg-modal-acts">
+              <button className="pg-btn" type="submit" disabled={sendBusy}>
+                {sendBusy ? 'Sending…' : 'Send selection'}
+              </button>
+              <button className="pg-btn is-ghost" type="button" onClick={() => setSendOpen(false)} disabled={sendBusy}>Cancel</button>
+            </div>
+          </form>
+        </div>
+      )}
+
       <div ref={gridRef} />
 
       {selfieMsg && <div className="pg-note">{selfieMsg}</div>}
@@ -712,8 +740,8 @@ export default function PublicGallery({ token, embedded, onBack }) {
               {zipBusy === 'picked' ? 'Downloading…' : 'Download'}
             </button>
             {isAdmin && (
-              <button className="pg-selbar-btn is-send" onClick={sendSelection} disabled={sendBusy}>
-                {sendBusy ? 'Sending…' : 'Send to studio'}
+              <button className="pg-selbar-btn is-send" onClick={() => { setSendNote(''); setSendOpen(true); }} disabled={sendBusy}>
+                Send to studio
               </button>
             )}
             {isAdmin && (

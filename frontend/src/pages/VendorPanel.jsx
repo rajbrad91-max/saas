@@ -830,6 +830,7 @@ function AlbumDetail({ albumId, onBack }) {
   const [selModal, setSelModal] = useState(false);      // 📩 show the client's sent selection
   const [selData, setSelData] = useState(null);
   const [selBusy, setSelBusy] = useState(false);
+  const [copiedNames, setCopiedNames] = useState(false);
   const dropInputRef = useRef(null); // hidden input the big drop zone clicks
   const sentinelRef = useRef(null);
   const workerRef = useRef(null);
@@ -895,11 +896,30 @@ function AlbumDetail({ albumId, onBack }) {
 
   // 📩 open the sent-selection panel (what the client's admin sent to the studio)
   function openSelection() {
-    setSelModal(true); setSelBusy(true); setSelData(null);
+    setSelModal(true); setSelBusy(true); setSelData(null); setCopiedNames(false);
     api.albumSelection(albumId)
       .then(d => setSelData(d))
       .catch(() => setSelData({ total: 0, events: [] }))
       .finally(() => setSelBusy(false));
+  }
+
+  // 📋 copy every selected file name, space-separated (DSC112 DSC113 …)
+  async function copySelectionNames() {
+    if (!selData?.events?.length) return;
+    const names = selData.events.flatMap(ev => ev.photos.map(p => (p.filename || '').replace(/\.[^.]+$/, '')));
+    const text = names.join(' ');
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      // clipboard API blocked (http or permissions) — fall back to a temporary textarea
+      const ta = document.createElement('textarea');
+      ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy'); } catch { /* nothing else to try */ }
+      document.body.removeChild(ta);
+    }
+    setCopiedNames(true);
+    setTimeout(() => setCopiedNames(false), 2000);
   }
 
   // reset the infinite-scroll window when switching event tabs
@@ -1166,18 +1186,38 @@ function AlbumDetail({ albumId, onBack }) {
               <div className="ad-fav-empty">Nothing sent yet. When the client logs in with the admin password, picks photos with the ✓ tool, and clicks “Send to studio”, their final selection appears here — grouped by event.</div>
             ) : (
               <div className="ad-fav-lists">
-                <div className="ad-fav-total">{selData.total} photo{selData.total === 1 ? '' : 's'} selected across {selData.events.length} event{selData.events.length === 1 ? '' : 's'}</div>
+                <div className="ad-sel-bar">
+                  <div className="ad-fav-total">
+                    {selData.total} photo{selData.total === 1 ? '' : 's'} selected across {selData.events.length} event{selData.events.length === 1 ? '' : 's'}
+                    {selData.sent_at && <span className="ad-sel-when"> · sent {new Date(selData.sent_at).toLocaleString()}</span>}
+                  </div>
+                  <div className="ad-sel-acts">
+                    <button className="refresh ad-ev-btn" onClick={copySelectionNames} title="Copy all selected file names">
+                      {copiedNames ? '✓ Copied' : '📋 Copy names'}
+                    </button>
+                    <a className="refresh ad-ev-btn" href={`/api/albums/${albumId}/selection.zip?token=${token}`} title="Download the selected photos as a Zip file">⬇️ Download Zip</a>
+                  </div>
+                </div>
+
+                {selData.note && (
+                  <div className="ad-sel-note">
+                    <div className="ad-sel-note-h">📝 Client's note</div>
+                    <p className="ad-sel-note-b">{selData.note}</p>
+                  </div>
+                )}
+
                 {selData.events.map(ev => (
                   <div key={ev.event_id ?? 'none'} className="ad-fav-event">
                     <div className="ad-fav-event-head">
                       <span className="ad-fav-event-name">🗂️ {ev.event_name}</span>
                       <span className="ad-fav-count">{ev.count} photo{ev.count === 1 ? '' : 's'}</span>
                     </div>
-                    <div className="ad-fav-grid">
+                    <div className="ad-sel-grid">
                       {ev.photos.map(ph => (
-                        <div key={ph.photo_id} className="ad-fav-thumb" title={ph.filename}>
+                        <figure key={ph.photo_id} className="ad-sel-item">
                           <img src={`${api.fileUrl(ph.photo_id, 'thumb')}?token=${token}`} loading="lazy" alt="" />
-                        </div>
+                          <figcaption title={ph.filename}>{ph.filename}</figcaption>
+                        </figure>
                       ))}
                     </div>
                   </div>
