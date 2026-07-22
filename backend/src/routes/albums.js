@@ -480,13 +480,43 @@ router.get('/:id/selection', requireAuth, async (req, res) => {
     }
     const events = [...evMap.values()].map(ev => ({ ...ev, count: ev.photos.length }));
     // the note the client typed when sending, if any
-    const { rows: nr } = await query('SELECT note, updated_at FROM selection_notes WHERE album_id=$1', [req.params.id]);
+    const { rows: nr } = await query('SELECT note, updated_at, completed_at FROM selection_notes WHERE album_id=$1', [req.params.id]);
     res.json({
       total: rows.length,
       events,
       note: nr[0]?.note || '',
       sent_at: nr[0]?.updated_at || null,
+      completed_at: nr[0]?.completed_at || null,
     });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ✅ mark the client's selection as handled (or clear that flag)
+router.put('/:id/selection/complete', requireAuth, async (req, res) => {
+  try {
+    const v = vid(req);
+    const { rows: own } = await query('SELECT id FROM albums WHERE id=$1 AND vendor_id=$2', [req.params.id, v]);
+    if (!own[0]) return res.status(404).json({ error: 'Not found' });
+    const done = req.body?.completed !== false;
+    await query(
+      `INSERT INTO selection_notes (album_id, completed_at)
+       VALUES ($1, $2)
+       ON CONFLICT (album_id) DO UPDATE SET completed_at = EXCLUDED.completed_at`,
+      [req.params.id, done ? new Date() : null]
+    );
+    res.json({ ok: true, completed_at: done ? new Date() : null });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// 🗑️ clear the sent selection and its note — the photos themselves are untouched
+router.delete('/:id/selection', requireAuth, async (req, res) => {
+  try {
+    const v = vid(req);
+    const { rows: own } = await query('SELECT id FROM albums WHERE id=$1 AND vendor_id=$2', [req.params.id, v]);
+    if (!own[0]) return res.status(404).json({ error: 'Not found' });
+    await query('DELETE FROM selections WHERE album_id=$1', [req.params.id]);
+    await query('DELETE FROM selection_notes WHERE album_id=$1', [req.params.id]);
+    res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

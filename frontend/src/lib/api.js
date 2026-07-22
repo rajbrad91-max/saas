@@ -203,6 +203,9 @@ export const api = {
   album: (id) => request(`/albums/${id}`),
   albumFavorites: (id) => request(`/albums/${id}/favorites`),
   albumSelection: (id) => request(`/albums/${id}/selection`),
+  completeSelection: (id, completed = true) =>
+    request(`/albums/${id}/selection/complete`, { method: 'PUT', body: JSON.stringify({ completed }) }),
+  clearSelection: (id) => request(`/albums/${id}/selection`, { method: 'DELETE' }),
   deleteAlbum: (id) => request(`/albums/${id}`, { method: 'DELETE' }),
   deletePhoto: (albumId, photoId) => request(`/albums/${albumId}/photos/${photoId}`, { method: 'DELETE' }),
   uploadPhotos: async (albumId, files, eventId) => {

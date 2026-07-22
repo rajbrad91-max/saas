@@ -853,7 +853,18 @@
 /* 📩 client's selection — toolbar, note, and named thumbnails */
 .ad-sel-bar { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
 .ad-sel-when { color: var(--muted); }
-.ad-sel-acts { display: flex; gap: 8px; flex: 0 0 auto; }
+/* completed badge + the two new toolbar actions */
+.ad-sel-done { display: inline-block; margin-left: 8px; background: #2dd4bf22; color: #2dd4bf; border: 1px solid #2dd4bf55; border-radius: 20px; padding: 1px 9px; font-size: 11px; font-weight: 700; }
+.ad-btn-done { background: #2dd4bf; color: #06231f; border-color: #2dd4bf; font-weight: 700; }
+.ad-btn-danger { color: #fb7185; border-color: #fb718555; }
+.ad-btn-danger:hover { background: #fb7185; color: #2a0810; border-color: #fb7185; }
+.ad-sel-confirm {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  border: 1px solid #fb718555; background: #fb71850f; border-radius: 10px;
+  padding: 12px 14px; margin-bottom: 16px; font-size: 13px; color: var(--text);
+}
+.ad-sel-confirm-acts { display: flex; gap: 8px; flex: 0 0 auto; }
+.ad-sel-acts { display: flex; gap: 8px; flex: 0 0 auto; flex-wrap: wrap; }
 .ad-sel-acts .ad-ev-btn { text-decoration: none; display: inline-flex; align-items: center; }
 .ad-sel-note {
   border: 1px solid var(--line); border-left: 3px solid var(--teal);

@@ -844,6 +844,8 @@ function AlbumDetail({ albumId, onBack }) {
   const [selData, setSelData] = useState(null);
   const [selBusy, setSelBusy] = useState(false);
   const [copiedNames, setCopiedNames] = useState(false);
+  const [selActBusy, setSelActBusy] = useState(false);   // mark-complete / clear in flight
+  const [selClearAsk, setSelClearAsk] = useState(false); // confirm clearing the selection
   const dropInputRef = useRef(null); // hidden input the big drop zone clicks
   const sentinelRef = useRef(null);
   const workerRef = useRef(null);
@@ -933,6 +935,28 @@ function AlbumDetail({ albumId, onBack }) {
     }
     setCopiedNames(true);
     setTimeout(() => setCopiedNames(false), 2000);
+  }
+
+  // ✅ flag the selection as handled (or un-flag it)
+  async function toggleSelectionComplete() {
+    const next = !selData?.completed_at;
+    setSelActBusy(true);
+    try {
+      const d = await api.completeSelection(albumId, next);
+      setSelData(s => ({ ...s, completed_at: next ? (d.completed_at || new Date().toISOString()) : null }));
+    } catch { /* leave state as-is */ }
+    finally { setSelActBusy(false); }
+  }
+
+  // 🗑️ clear the sent selection + note (photos are not touched)
+  async function clearSelection() {
+    setSelActBusy(true);
+    try {
+      await api.clearSelection(albumId);
+      setSelData({ total: 0, events: [], note: '', sent_at: null, completed_at: null });
+      setSelClearAsk(false);
+    } catch { /* leave state as-is */ }
+    finally { setSelActBusy(false); }
   }
 
   // reset the infinite-scroll window when switching event tabs
@@ -1203,14 +1227,33 @@ function AlbumDetail({ albumId, onBack }) {
                   <div className="ad-fav-total">
                     {selData.total} photo{selData.total === 1 ? '' : 's'} selected across {selData.events.length} event{selData.events.length === 1 ? '' : 's'}
                     {selData.sent_at && <span className="ad-sel-when"> · sent {new Date(selData.sent_at).toLocaleString()}</span>}
+                    {selData.completed_at && <span className="ad-sel-done">✓ Completed</span>}
                   </div>
                   <div className="ad-sel-acts">
                     <button className="refresh ad-ev-btn" onClick={copySelectionNames} title="Copy all selected file names">
                       {copiedNames ? '✓ Copied' : '📋 Copy names'}
                     </button>
                     <a className="refresh ad-ev-btn" href={`/api/albums/${albumId}/selection.zip?token=${token}`} title="Download the selected photos as a Zip file">⬇️ Download Zip</a>
+                    <button className={`refresh ad-ev-btn ${selData.completed_at ? 'ad-btn-done' : ''}`} onClick={toggleSelectionComplete} disabled={selActBusy}
+                      title={selData.completed_at ? 'Mark as not completed' : 'Mark this selection as handled'}>
+                      {selData.completed_at ? '↩️ Mark not done' : '✅ Mark completed'}
+                    </button>
+                    <button className="refresh ad-ev-btn ad-btn-danger" onClick={() => setSelClearAsk(true)} disabled={selActBusy}
+                      title="Clear this selection and note — your photos are not deleted">🗑️ Delete selection</button>
                   </div>
                 </div>
+
+                {selClearAsk && (
+                  <div className="ad-sel-confirm">
+                    <span>Clear this selection and the client's note? Your photos will <b>not</b> be deleted.</span>
+                    <span className="ad-sel-confirm-acts">
+                      <button className="refresh ad-ev-btn ad-btn-danger" onClick={clearSelection} disabled={selActBusy}>
+                        {selActBusy ? 'Clearing…' : 'Yes, clear it'}
+                      </button>
+                      <button className="refresh ad-ev-btn" onClick={() => setSelClearAsk(false)} disabled={selActBusy}>Cancel</button>
+                    </span>
+                  </div>
+                )}
 
                 {selData.note && (
                   <div className="ad-sel-note">
