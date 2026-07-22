@@ -384,8 +384,8 @@
   position: absolute; top: 8px; left: 8px;
   width: 22px; height: 22px;
   border-radius: 50%;
-  border: 1.5px solid rgba(255,255,255,.9);
-  background: rgba(0,0,0,.16);
+  border: 1.5px solid rgba(255,255,255,.72);
+  background: rgba(0,0,0,.12);
   backdrop-filter: blur(4px);
   color: transparent;
   font-size: 12px;
@@ -418,7 +418,7 @@
   transition: opacity .18s, background .16s, transform .16s;
 }
 .pg-star .pg-ico-svg { width: 18px; height: 18px; }
-.pg-tile:hover .pg-star { opacity: 1; }
+.pg-tile:hover .pg-star { opacity: .8; }
 .pg-star:hover { background: rgba(0,0,0,.45); transform: scale(1.08); }
 /* starred: stays visible, gold fill */
 .pg-star.is-on {
@@ -446,8 +446,19 @@
   transition: opacity .18s, background .16s, transform .16s;
 }
 .pg-del .pg-ico-svg { width: 17px; height: 17px; }
-.pg-tile:hover .pg-del { opacity: 1; }
+.pg-tile:hover .pg-del { opacity: .8; }
 .pg-del:hover { background: #e5484d; transform: scale(1.08); }
+
+/* 📱 touch devices have no hover, so the tile controls must always be visible.
+   Kept gently transparent so they don't fight with the photos. */
+@media (hover: none) {
+  .pg-tile .pg-star,
+  .pg-tile .pg-del { opacity: .55; }
+  .pg-tile .pg-check { opacity: .55; }
+  /* once acted on, show them at full strength */
+  .pg-tile .pg-star.is-on,
+  .pg-tile.is-picked .pg-check { opacity: 1; }
+}
 .pg-lb-del:hover { color: #ff6b6e; }
 /* red primary button for destructive confirm */
 .pg-btn-danger { background: #e5484d; color: #fff; }
@@ -507,6 +518,8 @@
   position: absolute; top: 0; left: 0; right: 0;
   z-index: 2;
   display: flex; justify-content: space-between; align-items: center;
+  /* if the name and the buttons can't share a line, the name drops to its own row */
+  flex-wrap: wrap; gap: 6px 12px;
   padding: 18px 22px;
   /* the bar sits over the photo now, so keep the controls readable on bright images */
   background: linear-gradient(to bottom, rgba(0,0,0,.55), transparent);
@@ -517,10 +530,12 @@
   color: rgba(255,255,255,.85);
   font-size: 12.5px; letter-spacing: .04em;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  max-width: 60%;
+  /* needs a floor so flex-wrap kicks in instead of squeezing the text to nothing */
+  flex: 1 1 200px; min-width: 0;
+  order: 1;
   pointer-events: none;
 }
-.pg-lb-acts { display: flex; gap: 6px; }
+.pg-lb-acts { display: flex; gap: 6px; flex: 0 0 auto; order: 2; margin-left: auto; }
 .pg-lb-btn {
   width: 38px; height: 38px;
   border-radius: 50%;
@@ -677,8 +692,18 @@
   .pg-faces { gap: 11px; }
   .pg-scenes { margin: 0 14px; padding: 26px 0 4px; gap: 18px; }
   .pg-note { padding: 18px 14px 0; }
-  .pg-check { opacity: .9; width: 20px; height: 20px; top: 6px; left: 6px; font-size: 10px; }
-  .pg-selbar { bottom: 14px; gap: 12px; padding: 10px 10px 10px 18px; width: calc(100% - 28px); justify-content: space-between; }
+  .pg-check { width: 20px; height: 20px; top: 6px; left: 6px; font-size: 10px; }
+  .pg-selbar {
+    bottom: 14px;
+    gap: 8px;
+    padding: 12px 14px;
+    width: calc(100% - 28px);
+    /* stack the label above the actions so nothing runs off the screen edge */
+    flex-direction: column; align-items: stretch;
+    border-radius: 18px;
+  }
+  .pg-selbar-acts { flex-wrap: wrap; justify-content: center; gap: 6px; }
+  .pg-selbar-n { text-align: center; }
   .pg-selbar-btn { padding: 8px 11px; font-size: 10px; letter-spacing: .06em; }
   .vg-grid { grid-template-columns: repeat(2, 1fr); gap: 24px 12px; padding: 4px 14px 60px; }
   .vg-head { padding: 34px 20px 24px; }
@@ -712,7 +737,7 @@
   .pg-face-n { font-size: 10px; }
   .pg-grid { grid-auto-rows: 96px; gap: 4px; padding: 16px 8px 130px; }
   .pg-back { font-size: 12px; }
-  .pg-selbar { padding: 9px 8px 9px 14px; gap: 8px; }
+  .pg-selbar { padding: 10px 10px; gap: 7px; }
   .pg-selbar-n { font-size: 10px; }
   .pg-selbar-btn { padding: 7px 9px; font-size: 9.5px; }
 }
