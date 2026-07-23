@@ -20,15 +20,41 @@ function scope(vid, extra = {}) {
 }
 
 // GET /api/leads/unread-count → how many NEW leads, for the sidebar badge 🔴
-// Deliberately tiny and separate from the list route so the panel can poll it
-// cheaply without pulling every lead row.
+// "Unread" is seen_at IS NULL, deliberately NOT status='new'. Status is the sales
+// pipeline (new → quoted → booked) and the panel filters and counts on it, so
+// marking a lead read must not move it out of the "New" filter.
 router.get('/unread-count', requireAuth, async (req, res) => {
   const vid = vendorIdFor(req);
   try {
     const count = await prisma.leads.count({
-      where: scope(vid, { archived_at: null, status: 'new' }),   // 🔒 tenancy
+      where: scope(vid, { archived_at: null, seen_at: null }),   // 🔒 tenancy
     });
     res.json({ count });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// GET /api/leads/mappable-columns → what a form field can be linked to.
+// Lets the builder offer the same list the server enforces, so the two can't drift.
+router.get('/mappable-columns', requireAuth, async (req, res) => {
+  res.json({
+    columns: Object.entries(MAPPABLE_COLUMNS).map(([key, v]) => ({
+      key, label: v.label, types: v.types,
+    })),
+  });
+});
+
+// PUT /api/leads/mark-seen → clear the sidebar badge.
+// Stamps seen_at on this vendor's unread leads. Status is left alone, so a lead
+// the vendor has merely glanced at still counts as "New" in the pipeline filters.
+router.put('/mark-seen', requireAuth, async (req, res) => {
+  const vid = vendorIdFor(req);
+  if (!vid) return res.status(400).json({ error: 'No vendor' });
+  try {
+    const { count } = await prisma.leads.updateMany({
+      where: { vendor_id: Number(vid), archived_at: null, seen_at: null },   // 🔒 tenancy on the write
+      data: { seen_at: new Date() },
+    });
+    res.json({ ok: true, cleared: count });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -143,7 +169,17 @@ const BOOL_FIELDS = new Set(['gr_bride', 'gr_groom']);
 function coerceLeadField(field, val) {
   if (val === '' || val === null) return null;
   if (DATE_FIELDS.has(field)) { const d = new Date(val); return isNaN(d) ? null : d; }
-  if (INT_FIELDS.has(field)) { const n = parseInt(val, 10); return isNaN(n) ? null : n; }
+  if (INT_FIELDS.has(field)) {
+    // A mapped dropdown can send "1 hr 30 min" or "150 guests" — parseInt would
+    // read 1 and quietly drop the half hour, so round a "x hr y min" value up to
+    // whole hours and otherwise take the first number present.
+    if (typeof val === 'string') {
+      const hm = val.match(/(\d+)\s*hr[s]?(?:\s*(\d+)\s*min)?/i);
+      if (hm) return parseInt(hm[1], 10) + (hm[2] ? Math.round(parseInt(hm[2], 10) / 60) : 0);
+    }
+    const n = parseInt(val, 10);
+    return isNaN(n) ? null : n;
+  }
   if (BOOL_FIELDS.has(field)) return !!val;
   return val;                                  // custom_data is a Json column — pass through
 }
@@ -151,14 +187,44 @@ function coerceLeadField(field, val) {
 /**
  * 🔗 Custom fields live in custom_data (a free-form bag keyed by field id), but
  * Bookings / Calendar / Details read the REAL columns (event_date, location…).
- * This syncs the bag → the columns so a date the vendor typed actually shows up.
- * Type drives the mapping: a 'date' custom field IS the event date, etc.
+ * This syncs the bag → the columns so an answer the client gave actually shows up.
  */
+/**
+ * Which real lead columns a custom field may be linked to, and which field types
+ * are allowed to fill each. A vendor picks the link in the form builder
+ * ("this dropdown IS the Event Type"), which is stored as `maps_to` on the field.
+ *
+ * Mapping used to be by TYPE alone (date → event_date, location → location).
+ * That silently lost data: a form with three date fields sent all three, but only
+ * one could win, and a dropdown called "Type of Event" never reached event_type
+ * at all — so the vendor's lead view showed blanks while the answers sat unread
+ * in custom_data.
+ */
+const MAPPABLE_COLUMNS = {
+  event_type:     { label: 'Event Type',        types: ['dropdown', 'text'] },
+  event_date:     { label: 'Event Date',        types: ['date'] },
+  timing_from:    { label: 'Timing From',       types: ['time'] },
+  timing_to:      { label: 'Timing To',         types: ['time'] },
+  location:       { label: 'Location',          types: ['location', 'text'] },
+  hours:          { label: 'Hours',             types: ['dropdown', 'text'] },
+  guests:         { label: 'Est. Guests',       types: ['text', 'dropdown'] },
+  gr_bride:       { label: 'Getting Ready — Bride (yes/no)',  types: ['checkbox'] },
+  gr_bride_venue: { label: 'Getting Ready — Bride venue',     types: ['location', 'text'] },
+  gr_groom:       { label: 'Getting Ready — Groom (yes/no)',  types: ['checkbox'] },
+  gr_groom_venue: { label: 'Getting Ready — Groom venue',     types: ['location', 'text'] },
+};
+
+// legacy fallback: forms built before `maps_to` existed relied on type alone
 const TYPE_TO_COLUMN = {
   date: 'event_date',
   location: 'location',
 };
 
+/**
+ * Copy answers out of the custom_data bag into the real lead columns.
+ * Prefers an explicit `maps_to` on the field; falls back to the old type rule
+ * only for fields that have no mapping set, so existing forms keep working.
+ */
 async function mapCustomToColumns(vendorId, body, { overwrite = false } = {}) {
   const cd = body.custom_data;
   if (!cd || typeof cd !== 'object') return body;
@@ -166,7 +232,7 @@ async function mapCustomToColumns(vendorId, body, { overwrite = false } = {}) {
   let fields = [];
   try {
     const s = await prisma.inquiry_settings.findUnique({
-      where: { vendor_id: Number(vendorId) },
+      where: { vendor_id: Number(vendorId) },   // 🔒 tenancy: only this vendor's form definition
       select: { custom_fields: true },
     });
     fields = s?.custom_fields || [];
@@ -174,15 +240,29 @@ async function mapCustomToColumns(vendorId, body, { overwrite = false } = {}) {
   if (!Array.isArray(fields) || !fields.length) return body;
 
   const out = { ...body };
+  const usedLegacy = new Set();
+
+  // pass 1 — explicit links win, and they win over any legacy guess
   for (const f of fields) {
-    const col = TYPE_TO_COLUMN[f.type];
-    if (!col) continue;                       // only types that have a real column
+    const col = f.maps_to;
+    if (!col || !MAPPABLE_COLUMNS[col]) continue;
     const val = cd[f.id];
     if (val === undefined || val === '') continue;
-    // on create: don't clobber a value the caller explicitly set.
-    // on edit (overwrite): the form is the source of truth — the new value wins.
     if (!overwrite && out[col] !== undefined && out[col] !== null && out[col] !== '') continue;
     out[col] = val;
+    usedLegacy.add(col);
+  }
+
+  // pass 2 — legacy type rule, only for columns nothing claimed explicitly
+  for (const f of fields) {
+    if (f.maps_to) continue;                    // this field opted in above
+    const col = TYPE_TO_COLUMN[f.type];
+    if (!col || usedLegacy.has(col)) continue;
+    const val = cd[f.id];
+    if (val === undefined || val === '') continue;
+    if (!overwrite && out[col] !== undefined && out[col] !== null && out[col] !== '') continue;
+    out[col] = val;
+    usedLegacy.add(col);
   }
   return out;
 }

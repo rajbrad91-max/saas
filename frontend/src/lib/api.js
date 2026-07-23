@@ -171,6 +171,8 @@ export const api = {
   createLead: (data) => request('/leads', { method: 'POST', body: JSON.stringify(data) }),
   leads: (vendorId) => request(`/leads${vendorId ? `?vendor_id=${vendorId}` : ''}`),
   leadsUnreadCount: () => request('/leads/unread-count'),
+  markLeadsSeen: () => request('/leads/mark-seen', { method: 'PUT' }),
+  mappableColumns: () => request('/leads/mappable-columns'),
   lead: (id) => request(`/leads/${id}`),
   updateLead: (id, data) => request(`/leads/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   mySettings: () => request('/me/settings'),

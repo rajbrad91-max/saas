@@ -64,12 +64,17 @@ export default function VendorPanel({ onLogout }) {
   }, [features]);
 
   // 📱 nav → also close sidebar on mobile.
-  // Re-check the badge on every tab change too: opening a lead marks it read, so
-  // navigating away and back should show the new count without waiting a minute.
+  // Opening Leads marks them read and clears the badge straight away; leaving the
+  // badge up while the vendor is looking at the list would be meaningless.
   const go = (t) => {
     setTab(t);
     if (window.innerWidth <= 820) setCollapsed(true);
-    if (has('leads')) refreshLeadCount();
+    if (t === 'leads' && has('leads')) {
+      setNewLeadCount(0);                                   // optimistic — the row is right there
+      api.markLeadsSeen().catch(() => refreshLeadCount());  // if it failed, put the true count back
+    } else if (has('leads')) {
+      refreshLeadCount();
+    }
   };
 
   useEffect(() => { load(); }, []);
@@ -1944,6 +1949,37 @@ function LeadDetail({ lead, onBack }) {
         {row('📝 Notes', lead.notes)}
       </div>
 
+      {/* 📋 Everything the client actually filled in.
+          The cards above only show answers that were mapped to a real column, so
+          without this a form with (say) three date fields would display one and
+          silently hide the rest. Labels come from the vendor's own form
+          definition; a field deleted since submission falls back to its id. */}
+      {cfg && Object.keys(lead.custom_data || {}).length > 0 && (
+        <div className="ld-card">
+          <div className="ld-card-h">📋 Inquiry Form Answers</div>
+          {(() => {
+            const defs = cfg.custom_fields || [];
+            const answered = Object.entries(lead.custom_data || {})
+              .filter(([, v]) => v !== '' && v !== null && v !== undefined && v !== false);
+            // keep the vendor's field order, then anything left over
+            const order = new Map(defs.map((f, i) => [f.id, i]));
+            answered.sort((a, b) => (order.get(a[0]) ?? 999) - (order.get(b[0]) ?? 999));
+            return answered.map(([id, val]) => {
+              const def = defs.find(f => f.id === id);
+              const label = def?.label || id;
+              const shown = val === true ? 'Yes' : String(val);
+              const linked = def?.maps_to ? ' 🔗' : '';
+              return (
+                <div className="ld-row" key={id}>
+                  <div className="ld-label">{label}{linked}</div>
+                  <div>{shown}</div>
+                </div>
+              );
+            });
+          })()}
+        </div>
+      )}
+
       </div>
 
       <div className="lead-right">
@@ -2474,7 +2510,12 @@ function FieldBuilder({ fields, setFields }) {
   const box = { background: 'var(--panel-2)', border: '1px solid var(--line)', borderRadius: 8, color: 'var(--text)', padding: 8, width: '100%', fontSize: 13 };
   const uid = () => 'f' + Math.random().toString(36).slice(2, 8);
 
-  const add = (t) => setFields([...fields, { id: uid(), type: t, label: '', required: false, options: t === 'dropdown' ? ['Option 1'] : [] }]);
+  // 🔗 Which real lead columns a field can feed. Fetched from the API so the
+  // builder always offers exactly what the server will accept.
+  const [cols, setCols] = useState([]);
+  useEffect(() => { api.mappableColumns().then(d => setCols(d.columns || [])).catch(() => {}); }, []);
+
+  const add = (t) => setFields([...fields, { id: uid(), type: t, label: '', required: false, maps_to: '', options: t === 'dropdown' ? ['Option 1'] : [] }]);
   const upd = (i, patch) => setFields(fields.map((f, idx) => idx === i ? { ...f, ...patch } : f));
   const del = (i) => setFields(fields.filter((_, idx) => idx !== i));
   const move = (i, dir) => {
@@ -2523,6 +2564,31 @@ function FieldBuilder({ fields, setFields }) {
           <label style={{ fontSize: 12, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 6, marginTop: 8 }}>
             <input type="checkbox" checked={f.required} onChange={e => upd(i, { required: e.target.checked })} /> Required
           </label>
+
+          {/* 🔗 optional link to a real lead column, so the answer shows in
+              Bookings / Calendar / the lead details rather than only in the
+              custom-answers list. Only columns this field's type can fill. */}
+          {cols.some(c => c.types.includes(f.type)) && (
+            <div style={{ marginTop: 8 }}>
+              <label style={{ fontSize: 11, color: 'var(--muted)', display: 'block', marginBottom: 3 }}>
+                Save answer to 🔗
+              </label>
+              <select
+                style={{ ...box, fontSize: 12 }}
+                value={f.maps_to || ''}
+                onChange={e => upd(i, { maps_to: e.target.value })}
+              >
+                <option value="">Just store the answer</option>
+                {cols.filter(c => c.types.includes(f.type)).map(c => {
+                  // one column can only be fed by one field
+                  const taken = fields.some((o, oi) => oi !== i && o.maps_to === c.key);
+                  return <option key={c.key} value={c.key} disabled={taken}>
+                    {c.label}{taken ? ' — already used' : ''}
+                  </option>;
+                })}
+              </select>
+            </div>
+          )}
         </div>
       ))}
     </div>
