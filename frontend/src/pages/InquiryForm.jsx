@@ -40,7 +40,12 @@ export default function InquiryForm({ vendorId }) {
 
   async function submit() {
     setErr('');
-    if (!p.name || !p.email) { setErr('Name and email are required'); return; }
+    if (!p.name.trim()) { setErr('Please enter your name'); return; }
+    if (!p.email.trim()) { setErr('Please enter your email'); return; }
+    // same rule the server enforces, so a typo is caught before the round-trip
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(p.email.trim())) {
+      setErr('That email address does not look right'); return;
+    }
     for (const fld of (cfg.custom_fields || [])) {
       if (fld.required && !answers[fld.id]) { setErr(`"${fld.label}" is required`); return; }
     }

@@ -284,6 +284,20 @@ router.post('/', async (req, res) => {
 
   if (!vendor_id) return res.status(400).json({ error: 'vendor_id required' });
 
+  // This route is PUBLIC, so the body is untrusted. Without these checks an empty
+  // POST created a blank lead row, a bad email was stored as-is, and an unknown
+  // vendor_id surfaced a raw Prisma foreign-key error to the caller.
+  const name = String(b.name || '').trim();
+  const email = String(b.email || '').trim();
+  if (!name) return res.status(400).json({ error: 'Name is required' });
+  if (!email) return res.status(400).json({ error: 'Email is required' });
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return res.status(400).json({ error: 'That email address does not look right' });
+  }
+
+  const vendorExists = await prisma.vendors.count({ where: { id: Number(vendor_id) } });
+  if (!vendorExists) return res.status(404).json({ error: 'Vendor not found' });
+
   // 🔗 pull real columns (event_date, location…) out of the custom-field bag
   const mapped = await mapCustomToColumns(vendor_id, b);
 
@@ -293,12 +307,19 @@ router.post('/', async (req, res) => {
     if (mapped[f] === undefined) continue;
     data[f] = coerceLeadField(f, mapped[f]);
   }
+  data.name = name;     // use the trimmed/validated values
+  data.email = email;
+
   try {
     const lead = await prisma.leads.create({ data });
     notifyNewLead(lead);
     notify(lead.vendor_id, `🆕 New inquiry from ${lead.name || 'a client'}`, `${lead.event_type || 'Event'} · ${lead.event_date ? String(lead.event_date).slice(0,10) : 'no date'}`, 'lead');
     res.status(201).json({ lead });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) {
+    // a public caller must never see a raw Prisma error
+    console.error('[leads] create failed:', e.message);
+    res.status(500).json({ error: 'Could not save your inquiry. Please try again.' });
+  }
 });
 
 // PUT /api/leads/:id → update (scoped)
