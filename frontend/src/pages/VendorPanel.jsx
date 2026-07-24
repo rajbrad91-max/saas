@@ -2619,22 +2619,27 @@ function FieldBuilder({ fields, setFields }) {
           {cols.some(c => c.types.includes(f.type)) && (
             <div style={{ marginTop: 8 }}>
               <label style={{ fontSize: 11, color: 'var(--muted)', display: 'block', marginBottom: 3 }}>
-                Save answer to 🔗
+                Where should this answer appear? 🔗
               </label>
               <select
                 style={{ ...box, fontSize: 12 }}
                 value={f.maps_to || ''}
                 onChange={e => upd(i, { maps_to: e.target.value })}
               >
-                <option value="">Just store the answer</option>
+                <option value="">📋 In the answers list only</option>
                 {cols.filter(c => c.types.includes(f.type)).map(c => {
                   // one column can only be fed by one field
                   const taken = fields.some((o, oi) => oi !== i && o.maps_to === c.key);
                   return <option key={c.key} value={c.key} disabled={taken}>
-                    {c.label}{taken ? ' — already used' : ''}
+                    ⭐ {c.label}{taken ? ' — used by another field' : ''}
                   </option>;
                 })}
               </select>
+              <p style={{ fontSize: 10.5, color: 'var(--muted)', margin: '4px 0 0', lineHeight: 1.45 }}>
+                {f.maps_to
+                  ? <>⭐ Shows as <strong>{cols.find(c => c.key === f.maps_to)?.label}</strong> on the lead, and in Bookings, Calendar and contracts.</>
+                  : <>📋 Saved with the inquiry and shown in the lead&apos;s answers list. Pick a field above to also show it on the lead card.</>}
+              </p>
             </div>
           )}
         </div>
