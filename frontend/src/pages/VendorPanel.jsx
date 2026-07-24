@@ -5,6 +5,7 @@ import { useAppRoute } from '../lib/appRoute';
 import { PROFESSIONS, LeadFormBody } from './InquiryForm';
 import PasswordInput from '../components/PasswordInput';
 import './inquiry.css';
+import SendPackagesModal from './SendPackagesModal.jsx';
 import './vendor.css';
 
 // 🗝️ tab → required feature (one map controls everything)
@@ -1672,6 +1673,8 @@ function LeadsView() {
   const [showAdd, setShowAdd] = useState(false);
   // 📤 which lead is mid-send, so its button can show progress
   const [sendingId, setSendingId] = useState(null);
+  // the lead whose Send Packages modal is open, if any
+  const [sendFor, setSendFor] = useState(null);
 
   // 🗑️ bin click: 1st click → enter select mode; if items checked → delete; if in mode w/ none → exit
   function onBinClick() {
@@ -1713,25 +1716,11 @@ function LeadsView() {
     try { await api.restoreLead(id); load(); } catch {}
   }
 
-  // 📤 Email the packages straight from the list, so a vendor doesn't have to
-  // open a lead just to send. Confirms first — this sends a real email — and
-  // reloads afterwards so the status badge reflects whatever the send changed.
-  async function sendPkgs(l, e) {
+  // 📤 Sending from the list opens the same compose modal as the lead detail —
+  // a vendor should always see what their client receives before it goes.
+  function sendPkgs(l, e) {
     e.stopPropagation();                        // don't open the lead behind it
-    if (sendingId) return;
-    if (!confirm(`Email the packages to ${l.name} at ${l.email}?`)) return;
-    setSendingId(l.id);
-    try {
-      await api.sendPackages(l.id);
-      setMsg(`📤 Sent to ${l.email}`);
-      setTimeout(() => setMsg(''), 2500);
-      load();
-    } catch (err) {
-      setMsg('⚠️ ' + (err.message || 'Could not send'));
-      setTimeout(() => setMsg(''), 3500);
-    } finally {
-      setSendingId(null);
-    }
+    setSendFor(l);
   }
 
   if (sel) return <LeadDetail lead={sel} onBack={() => { setSel(null); load(); }} />;
@@ -1812,6 +1801,21 @@ function LeadsView() {
       )}
 
       {showAdd && <AddLeadModal vendorId={getUser()?.vendor_id} onClose={() => setShowAdd(false)} onSaveDone={() => { setShowAdd(false); load(); }} />}
+
+      {sendFor && (
+        <SendPackagesModal
+          lead={sendFor}
+          link={`${window.location.origin}/portal/${sendFor.client_token}`}
+          onClose={() => setSendFor(null)}
+          onSent={async () => {
+            await api.sendPackages(sendFor.id).catch(() => {});
+            await api.setPackagesLock(sendFor.id, true).catch(() => {});
+            setMsg(`📤 Sent to ${sendFor.email}`);
+            setTimeout(() => setMsg(''), 2500);
+            load();
+          }}
+        />
+      )}
 
       <div className="table-wrap">
         <table className="leads-table">
@@ -1949,23 +1953,25 @@ function LeadDetail({ lead, onBack }) {
     try { await api.setGateway(lead.id, next); setPkgMsg(next ? '🔒 Secure login ON' : '🔓 Secure login OFF'); setTimeout(() => setPkgMsg(''), 1500); }
     catch (e) { setGateway(!next); setPkgMsg('⚠️ ' + e.message); }
   }
-  // 📤 Emails the packages to the client. Same endpoint as the button in the
-  // leads table, and it confirms first for the same reason: this sends a real
-  // email, and a misclick can't be taken back.
-  async function sendPackages() {
-    if (pkgBusy) return;
+  // 📤 Opens the compose modal rather than sending straight away — a vendor
+  // should see and adjust what their client receives.
+  const [emailOpen, setEmailOpen] = useState(false);
+  function openSendPackages() {
     if (!lead.email) { setPkgMsg('⚠️ This lead has no email address'); setTimeout(() => setPkgMsg(''), 3000); return; }
-    if (!confirm(`Email the packages to ${lead.name} at ${lead.email}?`)) return;
-    setPkgBusy(true); setPkgMsg('');
+    if (!leadPkgs.length) { setPkgMsg('⚠️ Load a package folder first'); setTimeout(() => setPkgMsg(''), 3000); return; }
+    setEmailOpen(true);
+  }
+
+  // called once the modal reports a successful send: lock the offer and start
+  // the countdown, the same things the old direct-send path did
+  async function afterSent() {
     try {
-      await api.sendPackages(lead.id);
-      // sending locks the offer — the client is now looking at it
+      await api.sendPackages(lead.id).catch(() => {});   // marks quoted + starts the timer
       await api.setPackagesLock(lead.id, true).catch(() => {});
       setPkgLocked(true);
-      setPkgMsg(`📤 Sent to ${lead.email}`); setTimeout(() => setPkgMsg(''), 2500);
-    }
-    catch (e) { setPkgMsg('⚠️ ' + (e.message || 'Failed')); setTimeout(() => setPkgMsg(''), 3500); }
-    finally { setPkgBusy(false); }
+      setPkgMsg(`📤 Sent to ${lead.email}`);
+      setTimeout(() => setPkgMsg(''), 2500);
+    } catch { /* the email already went — don't alarm the vendor */ }
   }
 
   useEffect(() => {
@@ -2182,7 +2188,7 @@ function LeadDetail({ lead, onBack }) {
           <p className="ld-pkg-empty">That folder has no packages yet.</p>
         )}
         <div className="ld-btn-row">
-          <button className="refresh bx-primary ld-btn-sm" onClick={sendPackages} disabled={pkgBusy}>{pkgBusy ? 'Sending…' : '📤 Send Packages'}</button>
+          <button className="refresh bx-primary ld-btn-sm" onClick={openSendPackages} disabled={pkgBusy}>📤 Send Packages</button>
           <button className={`refresh ld-gate ld-btn-sm ${gateway ? 'is-on' : ''}`} onClick={toggleGateway}>🔒 Secure Login {gateway ? 'ON' : 'OFF'}</button>
           <div className={`ld-timer-btn ${timer.enabled ? 'is-on' : ''}`}>
             <button className="ld-timer-toggle" onClick={() => saveTimer({ enabled: !timer.enabled })}>⏳ Timer {timer.enabled ? 'ON' : 'OFF'}</button>
@@ -2201,6 +2207,15 @@ function LeadDetail({ lead, onBack }) {
         )}
         {pkgMsg && <div className={`ld-msg ${pkgMsg[0] === '⚠' ? 'is-err' : 'is-ok'} ld-msg-mt`}>{pkgMsg}</div>}
       </div>
+
+      {emailOpen && (
+        <SendPackagesModal
+          lead={lead}
+          link={`${window.location.origin}/portal/${lead.client_token}`}
+          onClose={() => setEmailOpen(false)}
+          onSent={afterSent}
+        />
+      )}
 
       </div>
 

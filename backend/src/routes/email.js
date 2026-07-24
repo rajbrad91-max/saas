@@ -133,7 +133,7 @@ router.delete('/templates/:id', requireAuth, async (req, res) => {
 
 // POST /api/email/lead/:leadId → send email to the lead's client
 router.post('/lead/:leadId', requireAuth, async (req, res) => {
-  const { subject, body } = req.body;
+  const { subject, body, cc } = req.body;
   if (!subject || !body) return res.status(400).json({ error: 'Subject + body required' });
   try {
     const lead = await prisma.leads.findUnique({ where: { id: Number(req.params.leadId) } });
@@ -141,6 +141,12 @@ router.post('/lead/:leadId', requireAuth, async (req, res) => {
     if (req.user.role !== 'super_admin' && lead.vendor_id !== vid(req))
       return res.status(403).json({ error: 'Forbidden' });     // 🔒 tenancy
     if (!lead.email) return res.status(400).json({ error: 'Lead has no email' });
+
+    // a second address (a partner, a planner) is common on a wedding enquiry
+    const ccEmail = String(cc || '').trim();
+    if (ccEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(ccEmail)) {
+      return res.status(400).json({ error: 'That CC address does not look right' });
+    }
 
     const s = await getSettings(lead.vendor_id);
     if (s.mode === 'self')
@@ -151,8 +157,14 @@ router.post('/lead/:leadId', requireAuth, async (req, res) => {
 
     const fromEmail = s.mode === 'smtp' ? (s.from_email || s.smtp_user) : PLATFORM.from;
     const fromName = s.from_name || 'iwopo';
-    await t.sendMail({ from: `"${fromName}" <${fromEmail}>`, to: lead.email, subject, text: body });
-    res.json({ ok: true, sent_to: lead.email });
+    await t.sendMail({
+      from: `"${fromName}" <${fromEmail}>`,
+      to: lead.email,
+      ...(ccEmail ? { cc: ccEmail } : {}),
+      subject,
+      text: body,
+    });
+    res.json({ ok: true, sent_to: lead.email, cc: ccEmail || null });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

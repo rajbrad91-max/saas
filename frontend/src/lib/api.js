@@ -224,7 +224,7 @@ export const api = {
   },
   emailSettings: () => request('/email/settings'),
   saveEmailSettings: (data) => request('/email/settings', { method: 'PUT', body: JSON.stringify(data) }),
-  emailLead: (leadId, subject, body) => request(`/email/lead/${leadId}`, { method: 'POST', body: JSON.stringify({ subject, body }) }),
+  emailLead: (leadId, subject, body, cc) => request(`/email/lead/${leadId}`, { method: 'POST', body: JSON.stringify({ subject, body, cc }) }),
   leadContracts: (leadId) => request(`/contracts/lead/${leadId}`),
   previewContract: (leadId) => request(`/contracts/preview/${leadId}`),
   createContract: (leadId, title, body) => request(`/contracts/lead/${leadId}`, { method: 'POST', body: JSON.stringify({ title, body }) }),

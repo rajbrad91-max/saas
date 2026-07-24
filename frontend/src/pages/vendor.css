@@ -718,6 +718,52 @@
 .ld-pkg-ta { resize: vertical; line-height: 1.5; }
 .ld-pkg-empty { margin: 10px 0 0; font-size: 12px; color: var(--muted); }
 
+/* 📧 Send Packages — compose modal */
+.em-backdrop {
+  position: fixed; inset: 0; z-index: 60;
+  background: #00000088; backdrop-filter: blur(2px);
+  display: flex; align-items: center; justify-content: center; padding: 20px;
+}
+.em-modal {
+  width: 100%; max-width: 620px; max-height: 90vh;
+  display: flex; flex-direction: column;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+  box-shadow: 0 18px 50px #00000060; overflow: hidden;
+}
+.em-head {
+  display: flex; align-items: baseline; gap: 10px;
+  padding: 14px 20px; border-bottom: 1px solid var(--line);
+}
+.em-head h3 { margin: 0; font-size: 16px; }
+.em-to { color: var(--muted); font-size: 12.5px; }
+.em-x {
+  margin-left: auto; background: none; border: none; cursor: pointer;
+  color: var(--muted); font-size: 16px; line-height: 1; padding: 2px 4px;
+}
+.em-x:hover { color: var(--text); }
+.em-body { padding: 16px 20px; overflow-y: auto; }
+.em-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.em-ta { resize: vertical; line-height: 1.6; font-family: inherit; }
+.em-link {
+  margin-top: 10px; padding: 8px 10px; border-radius: 8px;
+  background: var(--panel-2); border: 1px solid var(--line);
+  font-size: 11.5px; color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.em-foot {
+  display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end;
+  padding: 12px 20px; border-top: 1px solid var(--line);
+}
+.em-foot button {
+  padding: 8px 14px; border-radius: 8px; border: 1px solid var(--line);
+  background: var(--panel-2); color: var(--text);
+  font-size: 12.5px; font-family: inherit; font-weight: 600; cursor: pointer;
+}
+.em-foot button:hover { border-color: var(--brand); }
+.em-foot button.is-primary { background: var(--brand); color: #06231f; border-color: var(--brand); }
+.em-foot button:disabled { opacity: .6; cursor: default; }
+@media (max-width: 560px) { .em-row2 { grid-template-columns: 1fr; } }
+
 /* ═══════════ 📱 RESPONSIVE ═══════════ */
 
 /* Tablet (≤1000px): stack dashboard */
