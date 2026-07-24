@@ -190,9 +190,15 @@ export const api = {
   deleteVendorPackage: (id) => request(`/vendor-packages/${id}`, { method: 'DELETE' }),
   assignPackage: (leadId, package_id) => request(`/vendor-packages/assign/${leadId}`,
     { method: 'PUT', body: JSON.stringify({ package_id }) }),
-  // send a whole folder of packages; the client picks one from it in the portal
-  assignFolder: (leadId, template_id) => request(`/vendor-packages/assign-folder/${leadId}`,
-    { method: 'PUT', body: JSON.stringify({ template_id }) }),
+  // 📦 a lead's own copy of the packages it was offered
+  leadPackages: (leadId) => request(`/lead-packages/${leadId}`),
+  loadLeadPackages: (leadId, template_id) => request(`/lead-packages/${leadId}/load`,
+    { method: 'POST', body: JSON.stringify({ template_id }) }),
+  updateLeadPackage: (leadId, id, data) => request(`/lead-packages/${leadId}/${id}`,
+    { method: 'PUT', body: JSON.stringify(data) }),
+  deleteLeadPackage: (leadId, id) => request(`/lead-packages/${leadId}/${id}`, { method: 'DELETE' }),
+  setPackagesLock: (leadId, locked) => request(`/lead-packages/${leadId}/lock/set`,
+    { method: 'PUT', body: JSON.stringify({ locked }) }),
   leadPayments: (leadId) => request(`/payments/lead/${leadId}`),
   addPayment: (leadId, amount, method, note) => request(`/payments/lead/${leadId}`, { method: 'POST', body: JSON.stringify({ amount, method, note }) }),
   deletePayment: (id) => request(`/payments/${id}`, { method: 'DELETE' }),

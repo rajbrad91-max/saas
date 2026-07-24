@@ -1866,6 +1866,41 @@ function LeadsView() {
   );
 }
 
+/** ✏️ Inline editor for one of a lead's packages — name, price and the bullet
+ *  list the client sees. Edits the lead's own copy, never the vendor's master. */
+function PackageEditor({ pkg, onSave, onCancel }) {
+  const [name, setName] = useState(pkg.name);
+  const [price, setPrice] = useState(String(pkg.price ?? 0));
+  const [items, setItems] = useState((pkg.inclusions || []).join('\n'));
+
+  return (
+    <div className="ld-pkg-edit">
+      <label className="fb-label">Package name</label>
+      <input className="fb-select" value={name} onChange={e => setName(e.target.value)} />
+
+      <label className="fb-label">Price for this client</label>
+      <input className="fb-select" type="number" min="0" step="1"
+        value={price} onChange={e => setPrice(e.target.value)} />
+
+      <label className="fb-label">What&apos;s included — one per line</label>
+      <textarea className="fb-select ld-pkg-ta" rows="5"
+        value={items} onChange={e => setItems(e.target.value)} />
+
+      <div className="ld-pkg-acts">
+        <button type="button" className="is-primary"
+          onClick={() => onSave({
+            name,
+            price: Number(price) || 0,
+            inclusions: items.split('\n').map(s => s.trim()).filter(Boolean),
+          })}>
+          ✓ Save
+        </button>
+        <button type="button" onClick={onCancel}>Cancel</button>
+      </div>
+    </div>
+  );
+}
+
 function LeadDetail({ lead, onBack }) {
   const [edit, setEdit] = useState(false);
   const [f, setF] = useState({ ...lead });
@@ -1877,11 +1912,14 @@ function LeadDetail({ lead, onBack }) {
   const setEAns = (id, v) => setEAnswers(s => ({ ...s, [id]: v }));
   const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState(false);
-  // 📦 The vendor sends a FOLDER of packages; the client picks one from it in
-  // their portal. Holding the folder here rather than a single package is what
-  // stops a wedding client being shown the corporate pricing too.
+  // 📦 The vendor loads a FOLDER; its packages are copied onto this lead so they
+  // can be tailored for this client without touching the master list. Locked
+  // once sent, so a client can't have the offer change under them.
   const [tpls, setTpls] = useState([]);
   const [tplId, setTplId] = useState(lead.package_template_id || '');
+  const [leadPkgs, setLeadPkgs] = useState([]);
+  const [pkgLocked, setPkgLocked] = useState(!!lead.packages_sent_at);
+  const [editPkg, setEditPkg] = useState(null);   // id of the package being edited
   const [gateway, setGateway] = useState(!!lead.gateway_enabled);
   const [pkgBusy, setPkgBusy] = useState(false);
   const [pkgMsg, setPkgMsg] = useState('');
@@ -1919,24 +1957,69 @@ function LeadDetail({ lead, onBack }) {
     if (!lead.email) { setPkgMsg('⚠️ This lead has no email address'); setTimeout(() => setPkgMsg(''), 3000); return; }
     if (!confirm(`Email the packages to ${lead.name} at ${lead.email}?`)) return;
     setPkgBusy(true); setPkgMsg('');
-    try { await api.sendPackages(lead.id); setPkgMsg(`📤 Sent to ${lead.email}`); setTimeout(() => setPkgMsg(''), 2500); }
+    try {
+      await api.sendPackages(lead.id);
+      // sending locks the offer — the client is now looking at it
+      await api.setPackagesLock(lead.id, true).catch(() => {});
+      setPkgLocked(true);
+      setPkgMsg(`📤 Sent to ${lead.email}`); setTimeout(() => setPkgMsg(''), 2500);
+    }
     catch (e) { setPkgMsg('⚠️ ' + (e.message || 'Failed')); setTimeout(() => setPkgMsg(''), 3500); }
     finally { setPkgBusy(false); }
   }
 
   useEffect(() => {
-    // folders, each with the packages inside it — the dropdown lists the folders
-    // and the count, so the vendor sees what they're about to send
+    // folders to choose from, and whatever is already loaded onto this lead
     api.pkgTemplates().then(d => setTpls(d.templates || [])).catch(() => {});
+    refreshLeadPkgs();
   }, []);
 
-  async function assignFolder(id) {
+  function refreshLeadPkgs() {
+    api.leadPackages(lead.id)
+      .then(d => { setLeadPkgs(d.packages || []); setPkgLocked(!!d.locked); })
+      .catch(() => {});
+  }
+
+  // Copy a folder's packages onto this lead. Replaces what's there — this is
+  // "offer this client these packages", not "add more".
+  async function loadFolder(id) {
     setTplId(id);
+    if (!id) { setLeadPkgs([]); return; }
+    setPkgBusy(true);
     try {
-      await api.assignFolder(lead.id, id || null);
-      setMsg(id ? '✅ Packages ready to send' : '✅ Packages cleared');
-      setTimeout(() => setMsg(''), 1800);
-    } catch (e) { setMsg('⚠️ ' + e.message); setTplId(lead.package_template_id || ''); }
+      const d = await api.loadLeadPackages(lead.id, id);
+      setLeadPkgs(d.packages || []);
+      setMsg(`✅ ${d.packages.length} packages loaded from ${d.folder}`);
+      setTimeout(() => setMsg(''), 2200);
+    } catch (e) {
+      setMsg('⚠️ ' + e.message);
+      setTplId(lead.package_template_id || '');
+    } finally { setPkgBusy(false); }
+  }
+
+  async function savePkg(id, patch) {
+    try {
+      const d = await api.updateLeadPackage(lead.id, id, patch);
+      setLeadPkgs(ps => ps.map(p => p.id === id ? d.package : p));
+      setEditPkg(null);
+    } catch (e) { setMsg('⚠️ ' + e.message); setTimeout(() => setMsg(''), 3000); }
+  }
+
+  async function removePkg(id, name) {
+    if (!confirm(`Remove "${name}" from this client's options?`)) return;
+    try {
+      await api.deleteLeadPackage(lead.id, id);
+      setLeadPkgs(ps => ps.filter(p => p.id !== id));
+    } catch (e) { setMsg('⚠️ ' + e.message); setTimeout(() => setMsg(''), 3000); }
+  }
+
+  async function toggleLock() {
+    const next = !pkgLocked;
+    if (next === false && !confirm('Unlock these packages? The client may already be looking at them.')) return;
+    try {
+      await api.setPackagesLock(lead.id, next);
+      setPkgLocked(next);
+    } catch (e) { setMsg('⚠️ ' + e.message); setTimeout(() => setMsg(''), 3000); }
   }
 
   async function save() {
@@ -2047,32 +2130,60 @@ function LeadDetail({ lead, onBack }) {
 
       {/* 📦 Packages */}
       <div className="ld-card">
-        <div className="ld-card-h">📦 Packages</div>
-        <select className="ld-select ld-pkg-select" value={tplId} onChange={e => assignFolder(e.target.value)}>
-          <option value="">— No packages —</option>
+        <div className="ld-card-h">
+          📦 Packages
+          {pkgLocked && <span className="ld-lock-tag">🔒 Sent</span>}
+        </div>
+
+        {/* pick a folder → its packages are copied here, ready to tailor */}
+        <select className="ld-select ld-pkg-select" value={tplId}
+          onChange={e => loadFolder(e.target.value)} disabled={pkgLocked || pkgBusy}>
+          <option value="">— Choose a package folder —</option>
           {tpls.map(t => (
             <option key={t.id} value={t.id}>
               📁 {t.name} ({(t.packages || []).length} package{(t.packages || []).length === 1 ? '' : 's'})
             </option>
           ))}
         </select>
-        {/* what's inside the chosen folder, so the vendor can see what the
-            client will be offered without leaving the lead */}
-        {tplId && (() => {
-          const inside = (tpls.find(t => String(t.id) === String(tplId))?.packages) || [];
-          if (!inside.length) return <p className="ld-pkg-empty">This folder has no packages yet.</p>;
-          return (
-            <ul className="ld-pkg-list">
-              {inside.map(p => (
-                <li key={p.id}>
-                  <span>{p.name}</span>
-                  <span className="ld-pkg-price">${Number(p.base_price).toFixed(0)}</span>
-                  {lead.package_id === p.id && <span className="ld-pkg-picked">✓ client picked</span>}
-                </li>
-              ))}
-            </ul>
-          );
-        })()}
+
+        {pkgLocked && (
+          <div className="ld-lock-note">
+            These packages have been sent, so they're locked to prevent accidental changes.
+            <button type="button" className="ld-unlock-btn" onClick={toggleLock}>✏️ Edit Packages</button>
+          </div>
+        )}
+
+        {/* the client's own copies — editable per client, master list untouched */}
+        {leadPkgs.map(p => (
+          <div key={p.id} className={`ld-pkg ${p.is_selected ? 'is-chosen' : ''}`}>
+            {editPkg === p.id ? (
+              <PackageEditor pkg={p} onSave={patch => savePkg(p.id, patch)} onCancel={() => setEditPkg(null)} />
+            ) : (
+              <>
+                <div className="ld-pkg-head">
+                  <span className="ld-pkg-name">{p.name}</span>
+                  {p.is_selected && <span className="ld-pkg-picked">✓ client picked this</span>}
+                  <span className="ld-pkg-amt">${Number(p.price).toFixed(0)}</span>
+                </div>
+                {(p.inclusions || []).length > 0 && (
+                  <ul className="ld-pkg-incl">
+                    {p.inclusions.map((it, i) => <li key={i}>{it}</li>)}
+                  </ul>
+                )}
+                {!pkgLocked && (
+                  <div className="ld-pkg-acts">
+                    <button type="button" onClick={() => setEditPkg(p.id)}>✏️ Edit</button>
+                    <button type="button" className="is-danger" onClick={() => removePkg(p.id, p.name)}>🗑️ Remove</button>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        ))}
+
+        {!leadPkgs.length && tplId && !pkgBusy && (
+          <p className="ld-pkg-empty">That folder has no packages yet.</p>
+        )}
         <div className="ld-btn-row">
           <button className="refresh bx-primary ld-btn-sm" onClick={sendPackages} disabled={pkgBusy}>{pkgBusy ? 'Sending…' : '📤 Send Packages'}</button>
           <button className={`refresh ld-gate ld-btn-sm ${gateway ? 'is-on' : ''}`} onClick={toggleGateway}>🔒 Secure Login {gateway ? 'ON' : 'OFF'}</button>
