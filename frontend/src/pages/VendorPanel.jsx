@@ -1897,7 +1897,6 @@ function LeadDetail({ lead, onBack }) {
     finally { setBusy(false); }
   }
 
-  const yn = (v) => v ? '✅ Yes' : '❌ No';
   const row = (label, value) => (
     <div className="ld-row">
       <div className="ld-label">{label}</div>
@@ -1945,47 +1944,42 @@ function LeadDetail({ lead, onBack }) {
         {row('🔎 Heard via', lead.heard)}
       </div>
 
-      {/* 🎉 Event Details */}
-      <div className="ld-card">
-        <div className="ld-card-h">🎉 Event Details</div>
-        {row('📅 Date', lead.event_date ? String(lead.event_date).slice(0,10) : null)}
-        {row('⏰ Time', lead.timing_from ? `${fmtTime(lead.timing_from)} – ${lead.timing_to ? fmtTime(lead.timing_to) : '?'}` : null)}
-        {row('📍 Location', lead.location)}
-        {row('👥 Guests', lead.guests)}
-        {row('⏱️ Hours', lead.hours)}
-        {row('💄 Bride Getting Ready', `${yn(lead.gr_bride)}${lead.gr_bride_venue ? ' · ' + lead.gr_bride_venue : ''}`)}
-        {row('😎 Groom Getting Ready', `${yn(lead.gr_groom)}${lead.gr_groom_venue ? ' · ' + lead.gr_groom_venue : ''}`)}
-        {row('📝 Notes', lead.notes)}
-      </div>
-
-      {/* 📋 The answers that AREN'T shown in Event Details above.
-          Mapped fields already appear there under their column heading, so this
-          card only carries the extras — a form's own questions that have no
-          matching lead column. It disappears entirely when there are none.
-          Labels come from the snapshot stored with the lead, so they survive the
-          vendor editing or rebuilding the form. */}
+      {/* 🎉 Event Details — driven entirely by the vendor's own inquiry form.
+          A fixed list of rows meant a DJ saw "Bride Getting Ready ❌ No" for a
+          question their form never asked. Rows are built from the questions the
+          client actually answered, using the vendor's own wording, and a row is
+          only shown when there's an answer to put in it. */}
       {(() => {
         const defs = (Array.isArray(lead.form_snapshot) && lead.form_snapshot.length)
           ? lead.form_snapshot
           : (cfg?.custom_fields || []);
-        const byId = new Map(defs.map(f => [f.id, f]));
-        const extras = Object.entries(lead.custom_data || {})
-          .filter(([id, v]) => {
-            if (v === '' || v === null || v === undefined || v === false) return false;
-            return !byId.get(id)?.maps_to;      // skip anything already above
-          });
-        if (!extras.length) return null;
+        const cd = lead.custom_data || {};
+        const has = (v) => v !== '' && v !== null && v !== undefined && v !== false;
 
-        const order = new Map(defs.map((f, i) => [f.id, i]));
-        extras.sort((a, b) => (order.get(a[0]) ?? 999) - (order.get(b[0]) ?? 999));
+        // an answer's display value; checkboxes read as Yes, and a mapped column
+        // wins over the raw answer because it's the coerced/cleaned version
+        const valueFor = (f) => {
+          const col = f.maps_to && lead[f.maps_to];
+          const raw = cd[f.id];
+          const v = has(col) ? col : raw;
+          if (!has(v)) return null;
+          if (v === true) return '✅ Yes';
+          if (f.type === 'date') return String(v).slice(0, 10);
+          return String(v);
+        };
+
+        const rows = defs.map(f => [f.label, valueFor(f)]).filter(([, v]) => v !== null);
+        // notes aren't a form field — they're the free-text box every form has
+        if (has(lead.notes)) rows.push(['📝 Notes', lead.notes]);
+        if (!rows.length) return null;
 
         return (
           <div className="ld-card">
-            <div className="ld-card-h">📋 Inquiry Form Answers</div>
-            {extras.map(([id, val]) => (
-              <div className="ld-row" key={id}>
-                <div className="ld-label">{byId.get(id)?.label || id}</div>
-                <div>{val === true ? 'Yes' : String(val)}</div>
+            <div className="ld-card-h">🎉 Event Details</div>
+            {rows.map(([label, value], i) => (
+              <div className="ld-row" key={i}>
+                <div className="ld-label">{label}</div>
+                <div>{value}</div>
               </div>
             ))}
           </div>
