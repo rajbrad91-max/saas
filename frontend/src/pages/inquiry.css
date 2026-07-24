@@ -72,11 +72,6 @@
 }
 .iq-auto-reset:hover { color: #4A3E3D; }
 
-/* location autocomplete */
-.iq-sugs { position: absolute; top: 100%; left: 0; right: 0; z-index: 20; background: #fff; border: 1px solid #E0D6C8; border-radius: 10px; margin-top: 4px; max-height: 200px; overflow-y: auto; box-shadow: 0 8px 24px rgba(74,62,61,.12); }
-.iq-sug { padding: 10px 14px; font-size: 13px; cursor: pointer; border-bottom: 1px solid #F0EBE2; color: #3D3530; }
-.iq-sug:hover { background: #F5EFE4; }
-
 .iq-err { background: #fbeaea; color: #b4433a; padding: 11px; border-radius: 9px; margin-top: 14px; font-size: 13px; }
 .iq-btn { width: 100%; margin-top: 20px; padding: 14px; background: #4A3E3D; color: #F5F0EA; border: none; border-radius: 11px; font-weight: 800; font-size: 15px; cursor: pointer; }
 .iq-btn:hover { background: #3D3530; }

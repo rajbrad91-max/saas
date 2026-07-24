@@ -1958,42 +1958,39 @@ function LeadDetail({ lead, onBack }) {
         {row('📝 Notes', lead.notes)}
       </div>
 
-      {/* 📋 Everything the client actually filled in.
-          The cards above only show answers that were mapped to a real column, so
-          without this a form with (say) three date fields would display one and
-          silently hide the rest. Labels come from the snapshot stored with the
-          lead, so they survive the vendor editing or rebuilding the form. */}
-      {Object.keys(lead.custom_data || {}).length > 0 && (
-        <div className="ld-card">
-          <div className="ld-card-h">📋 Inquiry Form Answers</div>
-          {(() => {
-            // Prefer the snapshot taken when this lead was submitted. The live
-            // form is only a fallback: once the vendor edits or rebuilds it, its
-            // field ids no longer match these answers and every row would show a
-            // raw key like "f0z6iex" instead of "Type of Event".
-            const defs = (Array.isArray(lead.form_snapshot) && lead.form_snapshot.length)
-              ? lead.form_snapshot
-              : (cfg?.custom_fields || []);
-            const answered = Object.entries(lead.custom_data || {})
-              .filter(([, v]) => v !== '' && v !== null && v !== undefined && v !== false);
-            // keep the vendor's field order, then anything left over
-            const order = new Map(defs.map((f, i) => [f.id, i]));
-            answered.sort((a, b) => (order.get(a[0]) ?? 999) - (order.get(b[0]) ?? 999));
-            return answered.map(([id, val]) => {
-              const def = defs.find(f => f.id === id);
-              const label = def?.label || id;
-              const shown = val === true ? 'Yes' : String(val);
-              const linked = def?.maps_to ? ' 🔗' : '';
-              return (
-                <div className="ld-row" key={id}>
-                  <div className="ld-label">{label}{linked}</div>
-                  <div>{shown}</div>
-                </div>
-              );
-            });
-          })()}
-        </div>
-      )}
+      {/* 📋 The answers that AREN'T shown in Event Details above.
+          Mapped fields already appear there under their column heading, so this
+          card only carries the extras — a form's own questions that have no
+          matching lead column. It disappears entirely when there are none.
+          Labels come from the snapshot stored with the lead, so they survive the
+          vendor editing or rebuilding the form. */}
+      {(() => {
+        const defs = (Array.isArray(lead.form_snapshot) && lead.form_snapshot.length)
+          ? lead.form_snapshot
+          : (cfg?.custom_fields || []);
+        const byId = new Map(defs.map(f => [f.id, f]));
+        const extras = Object.entries(lead.custom_data || {})
+          .filter(([id, v]) => {
+            if (v === '' || v === null || v === undefined || v === false) return false;
+            return !byId.get(id)?.maps_to;      // skip anything already above
+          });
+        if (!extras.length) return null;
+
+        const order = new Map(defs.map((f, i) => [f.id, i]));
+        extras.sort((a, b) => (order.get(a[0]) ?? 999) - (order.get(b[0]) ?? 999));
+
+        return (
+          <div className="ld-card">
+            <div className="ld-card-h">📋 Inquiry Form Answers</div>
+            {extras.map(([id, val]) => (
+              <div className="ld-row" key={id}>
+                <div className="ld-label">{byId.get(id)?.label || id}</div>
+                <div>{val === true ? 'Yes' : String(val)}</div>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
 
       </div>
 

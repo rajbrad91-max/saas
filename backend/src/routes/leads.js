@@ -276,7 +276,7 @@ async function mapCustomToColumns(vendorId, body, { overwrite = false } = {}) {
  * the answers survive but nothing can name them. Storing the labels with the
  * submission makes a lead self-describing for life.
  */
-async function snapshotFormFields(vendorId) {
+async function snapshotFormFields(vendorId, customData) {
   try {
     const s = await prisma.inquiry_settings.findUnique({
       where: { vendor_id: Number(vendorId) },   // 🔒 tenancy
@@ -284,10 +284,29 @@ async function snapshotFormFields(vendorId) {
     });
     const fields = s?.custom_fields;
     if (!Array.isArray(fields) || !fields.length) return undefined;
-    return fields.map(f => ({
-      id: f.id, label: f.label, type: f.type,
-      ...(f.maps_to ? { maps_to: f.maps_to } : {}),
-    }));
+
+    // Record the EFFECTIVE mapping, not just the explicit one. An unmapped date
+    // or location field still fills its column through the legacy type rule
+    // below, and the lead view uses this flag to avoid printing the same answer
+    // in both Event Details and the answers list.
+    const claimed = new Set(fields.map(f => f.maps_to).filter(Boolean));
+    const cd = customData && typeof customData === 'object' ? customData : {};
+
+    return fields.map(f => {
+      let effective = f.maps_to || '';
+      if (!effective) {
+        const col = TYPE_TO_COLUMN[f.type];
+        const answered = cd[f.id] !== undefined && cd[f.id] !== '';
+        if (col && !claimed.has(col) && answered) {
+          effective = col;
+          claimed.add(col);                     // first one wins, same as the mapper
+        }
+      }
+      return {
+        id: f.id, label: f.label, type: f.type,
+        ...(effective ? { maps_to: effective } : {}),
+      };
+    });
   } catch { return undefined; }
 }
 
@@ -337,7 +356,7 @@ router.post('/', async (req, res) => {
 
   // keep the field labels with the lead, so it stays readable after the vendor
   // edits or rebuilds the form these answers came from
-  const snap = await snapshotFormFields(vendor_id);
+  const snap = await snapshotFormFields(vendor_id, b.custom_data);
   if (snap) data.form_snapshot = snap;
 
   try {

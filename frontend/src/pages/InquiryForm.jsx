@@ -291,34 +291,22 @@ function HoursField({ fld, value, onChange, answers, fields }) {
   </>);
 }
 
+/**
+ * 📍 Location field — a plain text input.
+ *
+ * This used to autocomplete against photon.komoot.io. That's a free community
+ * service with no SLA or support, called straight from the client's browser, so
+ * every guest's IP hit a third party we don't control and suggestions would
+ * simply stop if it went down or rate-limited us. Clients know their own venue;
+ * typing it is fine.
+ */
 function LocationField({ value, onChange }) {
-  const [sugs, setSugs] = useState([]);
-  const [open, setOpen] = useState(false);
-
-  async function lookup(q) {
-    onChange(q);
-    if (q.length < 3) { setSugs([]); return; }
-    try {
-      const r = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=5`);
-      const d = await r.json();
-      setSugs((d.features || []).map(f => {
-        const pr = f.properties;
-        return [pr.name, pr.city, pr.state, pr.country].filter(Boolean).join(', ');
-      }));
-      setOpen(true);
-    } catch { setSugs([]); }
-  }
-
   return (
-    <div style={{ position: 'relative' }}>
-      <input value={value} onChange={e => lookup(e.target.value)} placeholder="Start typing an address…" autoComplete="off" />
-      {open && sugs.length > 0 && (
-        <div className="iq-sugs">
-          {sugs.map((s, i) => (
-            <div key={i} className="iq-sug" onClick={() => { onChange(s); setOpen(false); }}>{s}</div>
-          ))}
-        </div>
-      )}
-    </div>
+    <input
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      placeholder="Venue name and address"
+      autoComplete="off"
+    />
   );
 }
