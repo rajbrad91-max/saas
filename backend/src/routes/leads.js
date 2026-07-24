@@ -266,6 +266,31 @@ async function mapCustomToColumns(vendorId, body, { overwrite = false } = {}) {
   }
   return out;
 }
+/**
+ * The field definitions a lead was submitted against, trimmed to what the lead
+ * view needs to render its answers: id, label, type and order.
+ *
+ * custom_data is keyed by field id, and those ids are meaningless on their own.
+ * Without a snapshot, a vendor who edits or rebuilds their form leaves every
+ * earlier lead showing raw keys like "f0z6iex" instead of "Type of Event" —
+ * the answers survive but nothing can name them. Storing the labels with the
+ * submission makes a lead self-describing for life.
+ */
+async function snapshotFormFields(vendorId) {
+  try {
+    const s = await prisma.inquiry_settings.findUnique({
+      where: { vendor_id: Number(vendorId) },   // 🔒 tenancy
+      select: { custom_fields: true },
+    });
+    const fields = s?.custom_fields;
+    if (!Array.isArray(fields) || !fields.length) return undefined;
+    return fields.map(f => ({
+      id: f.id, label: f.label, type: f.type,
+      ...(f.maps_to ? { maps_to: f.maps_to } : {}),
+    }));
+  } catch { return undefined; }
+}
+
 // POST /api/leads → create (public inquiry OR logged-in vendor panel).
 // Public form sends vendor_id in the body; the vendor panel is authenticated,
 // so we take vendor_id from the token instead of trusting the body.
@@ -309,6 +334,11 @@ router.post('/', async (req, res) => {
   }
   data.name = name;     // use the trimmed/validated values
   data.email = email;
+
+  // keep the field labels with the lead, so it stays readable after the vendor
+  // edits or rebuilds the form these answers came from
+  const snap = await snapshotFormFields(vendor_id);
+  if (snap) data.form_snapshot = snap;
 
   try {
     const lead = await prisma.leads.create({ data });

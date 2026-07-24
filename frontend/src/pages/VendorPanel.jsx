@@ -1961,13 +1961,19 @@ function LeadDetail({ lead, onBack }) {
       {/* 📋 Everything the client actually filled in.
           The cards above only show answers that were mapped to a real column, so
           without this a form with (say) three date fields would display one and
-          silently hide the rest. Labels come from the vendor's own form
-          definition; a field deleted since submission falls back to its id. */}
-      {cfg && Object.keys(lead.custom_data || {}).length > 0 && (
+          silently hide the rest. Labels come from the snapshot stored with the
+          lead, so they survive the vendor editing or rebuilding the form. */}
+      {Object.keys(lead.custom_data || {}).length > 0 && (
         <div className="ld-card">
           <div className="ld-card-h">📋 Inquiry Form Answers</div>
           {(() => {
-            const defs = cfg.custom_fields || [];
+            // Prefer the snapshot taken when this lead was submitted. The live
+            // form is only a fallback: once the vendor edits or rebuilds it, its
+            // field ids no longer match these answers and every row would show a
+            // raw key like "f0z6iex" instead of "Type of Event".
+            const defs = (Array.isArray(lead.form_snapshot) && lead.form_snapshot.length)
+              ? lead.form_snapshot
+              : (cfg?.custom_fields || []);
             const answered = Object.entries(lead.custom_data || {})
               .filter(([, v]) => v !== '' && v !== null && v !== undefined && v !== false);
             // keep the vendor's field order, then anything left over
