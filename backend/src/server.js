@@ -26,6 +26,7 @@ import pollRoutes from './routes/poll.js';
 import chatbotRoutes from './routes/chatbot.js';
 import notificationRoutes from './routes/notifications.js';
 import portalRoutes from './routes/portal.js';
+import leadPackageRoutes from './routes/leadPackages.js';
 import { gate } from './lib/entitlements.js';
 
 dotenv.config();
@@ -60,6 +61,7 @@ app.use('/api/poll', pollRoutes); // 🗳️ public voting page (one vote per IP
 app.use('/api/chatbot', chatbotRoutes); // 🤖 Tasveer chatbot: subscribers + knowledge base
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/portal', portalRoutes);
+app.use('/api/lead-packages', gate('leads'), leadPackageRoutes);
 
 app.get('/', (req, res) => {
   res.json({ status: 'ok', service: 'iwopo API', version: '2.0.0' });
